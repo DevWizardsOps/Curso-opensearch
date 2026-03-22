@@ -1,0 +1,200 @@
+{"index": {"_index": "produtos"}}
+{"id": "doc-001", "nome": "Produto Alpha 001", "status": "ativo", "descricao": "Produto de alta qualidade para testes de indexação no OpenSearch", "usuario": "user_001", "timestamp": "2024-01-15T10:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-002", "nome": "Produto Beta 002", "status": "inativo", "descricao": "Item descontinuado aguardando remoção do catálogo de produtos", "usuario": "user_002", "timestamp": "2024-01-16T11:45:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-003", "nome": "Produto Gamma 003", "status": "pendente", "descricao": "Produto em análise de conformidade antes de ser ativado no sistema", "usuario": "user_003", "timestamp": "2024-01-17T09:15:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-004", "nome": "Produto Delta 004", "status": "ativo", "descricao": "Solução robusta para ambientes de produção com alta disponibilidade", "usuario": "user_004", "timestamp": "2024-01-18T14:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-005", "nome": "Produto Epsilon 005", "status": "ativo", "descricao": "Componente essencial para integração com sistemas legados corporativos", "usuario": "user_005", "timestamp": "2024-01-19T08:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-006", "nome": "Produto Zeta 006", "status": "inativo", "descricao": "Versão antiga substituída por modelo mais recente e eficiente", "usuario": "user_006", "timestamp": "2024-01-20T16:20:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-007", "nome": "Produto Eta 007", "status": "pendente", "descricao": "Aguardando aprovação do departamento de qualidade para liberação", "usuario": "user_007", "timestamp": "2024-01-21T13:10:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-008", "nome": "Produto Theta 008", "status": "ativo", "descricao": "Produto premium com suporte técnico dedicado e garantia estendida", "usuario": "user_008", "timestamp": "2024-01-22T10:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-009", "nome": "Produto Iota 009", "status": "ativo", "descricao": "Ferramenta de monitoramento para infraestrutura de nuvem distribuída", "usuario": "user_009", "timestamp": "2024-01-23T15:45:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-010", "nome": "Produto Kappa 010", "status": "pendente", "descricao": "Em processo de certificação para mercados internacionais regulados", "usuario": "user_010", "timestamp": "2024-01-24T09:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-011", "nome": "Produto Lambda 011", "status": "ativo", "descricao": "Módulo de processamento assíncrono para filas de alta demanda", "usuario": "user_011", "timestamp": "2024-01-25T11:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-012", "nome": "Produto Mu 012", "status": "inativo", "descricao": "Serviço legado em processo de migração para nova plataforma cloud", "usuario": "user_012", "timestamp": "2024-01-26T14:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-013", "nome": "Produto Nu 013", "status": "ativo", "descricao": "Biblioteca de criptografia para proteção de dados sensíveis em repouso", "usuario": "user_013", "timestamp": "2024-01-27T08:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-014", "nome": "Produto Xi 014", "status": "pendente", "descricao": "Produto aguardando testes de carga antes de entrar em produção", "usuario": "user_014", "timestamp": "2024-01-28T17:15:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-015", "nome": "Produto Omicron 015", "status": "ativo", "descricao": "Conector de integração para APIs REST e serviços de mensageria", "usuario": "user_015", "timestamp": "2024-01-29T10:45:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-016", "nome": "Produto Pi 016", "status": "ativo", "descricao": "Dashboard analítico com visualizações em tempo real de métricas", "usuario": "user_016", "timestamp": "2024-01-30T12:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-017", "nome": "Produto Rho 017", "status": "inativo", "descricao": "Componente descontinuado após atualização de requisitos de segurança", "usuario": "user_017", "timestamp": "2024-02-01T09:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-018", "nome": "Produto Sigma 018", "status": "pendente", "descricao": "Módulo em revisão de arquitetura para suporte a múltiplos tenants", "usuario": "user_018", "timestamp": "2024-02-02T15:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-019", "nome": "Produto Tau 019", "status": "ativo", "descricao": "Serviço de autenticação com suporte a OAuth2 e SAML federado", "usuario": "user_019", "timestamp": "2024-02-03T11:20:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-020", "nome": "Produto Upsilon 020", "status": "ativo", "descricao": "Plataforma de orquestração de containers para workloads críticos", "usuario": "user_020", "timestamp": "2024-02-04T08:45:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-021", "nome": "Produto Phi 021", "status": "inativo", "descricao": "Versão beta encerrada após lançamento da versão estável em produção", "usuario": "user_021", "timestamp": "2024-02-05T13:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-022", "nome": "Produto Chi 022", "status": "pendente", "descricao": "Aguardando homologação pelo time de segurança da informação", "usuario": "user_022", "timestamp": "2024-02-06T10:15:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-023", "nome": "Produto Psi 023", "status": "ativo", "descricao": "Motor de busca full-text com suporte a múltiplos idiomas e sinônimos", "usuario": "user_023", "timestamp": "2024-02-07T16:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-024", "nome": "Produto Omega 024", "status": "ativo", "descricao": "Sistema de cache distribuído para redução de latência em consultas", "usuario": "user_024", "timestamp": "2024-02-08T09:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-025", "nome": "Produto Alpha 025", "status": "ativo", "descricao": "Solução de backup automatizado com retenção configurável por política", "usuario": "user_025", "timestamp": "2024-02-09T14:45:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-026", "nome": "Produto Beta 026", "status": "inativo", "descricao": "Módulo de relatórios substituído por solução de BI mais completa", "usuario": "user_026", "timestamp": "2024-02-10T11:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-027", "nome": "Produto Gamma 027", "status": "pendente", "descricao": "Produto em fase de testes de integração com sistemas de terceiros", "usuario": "user_027", "timestamp": "2024-02-11T08:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-028", "nome": "Produto Delta 028", "status": "ativo", "descricao": "Serviço de notificações push para aplicações móveis e web", "usuario": "user_028", "timestamp": "2024-02-12T15:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-029", "nome": "Produto Epsilon 029", "status": "ativo", "descricao": "Pipeline de dados para ingestão e transformação em tempo real", "usuario": "user_029", "timestamp": "2024-02-13T10:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-030", "nome": "Produto Zeta 030", "status": "pendente", "descricao": "Componente de logging centralizado aguardando configuração de destino", "usuario": "user_030", "timestamp": "2024-02-14T12:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-031", "nome": "Produto Eta 031", "status": "ativo", "descricao": "Gerenciador de configurações centralizado para ambientes distribuídos", "usuario": "user_031", "timestamp": "2024-02-15T09:15:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-032", "nome": "Produto Theta 032", "status": "inativo", "descricao": "Serviço de geolocalização descontinuado por baixo uso na plataforma", "usuario": "user_032", "timestamp": "2024-02-16T14:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-033", "nome": "Produto Iota 033", "status": "ativo", "descricao": "Módulo de pagamentos integrado com múltiplos gateways financeiros", "usuario": "user_033", "timestamp": "2024-02-17T11:45:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-034", "nome": "Produto Kappa 034", "status": "pendente", "descricao": "Aguardando aprovação legal para processamento de dados pessoais", "usuario": "user_034", "timestamp": "2024-02-18T16:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-035", "nome": "Produto Lambda 035", "status": "ativo", "descricao": "Serviço de compressão de imagens para otimização de armazenamento", "usuario": "user_035", "timestamp": "2024-02-19T08:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-036", "nome": "Produto Mu 036", "status": "ativo", "descricao": "Plataforma de testes automatizados para pipelines de CI/CD", "usuario": "user_036", "timestamp": "2024-02-20T13:15:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-037", "nome": "Produto Nu 037", "status": "inativo", "descricao": "Conector JDBC legado substituído por driver nativo de alta performance", "usuario": "user_037", "timestamp": "2024-02-21T10:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-038", "nome": "Produto Xi 038", "status": "pendente", "descricao": "Módulo de exportação de dados aguardando validação de formato", "usuario": "user_038", "timestamp": "2024-02-22T15:45:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-039", "nome": "Produto Omicron 039", "status": "ativo", "descricao": "Serviço de tradução automática para suporte a múltiplos idiomas", "usuario": "user_039", "timestamp": "2024-02-23T09:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-040", "nome": "Produto Pi 040", "status": "ativo", "descricao": "Ferramenta de análise de logs com detecção de anomalias por ML", "usuario": "user_040", "timestamp": "2024-02-24T12:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-041", "nome": "Produto Rho 041", "status": "inativo", "descricao": "API de terceiros descontinuada após encerramento do contrato de suporte", "usuario": "user_041", "timestamp": "2024-03-01T10:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-042", "nome": "Produto Sigma 042", "status": "pendente", "descricao": "Produto em fase de documentação técnica antes da liberação oficial", "usuario": "user_042", "timestamp": "2024-03-02T14:15:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-043", "nome": "Produto Tau 043", "status": "ativo", "descricao": "Serviço de agendamento de tarefas com suporte a expressões cron", "usuario": "user_043", "timestamp": "2024-03-03T08:45:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-044", "nome": "Produto Upsilon 044", "status": "ativo", "descricao": "Módulo de auditoria para rastreamento de ações de usuários no sistema", "usuario": "user_044", "timestamp": "2024-03-04T11:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-045", "nome": "Produto Phi 045", "status": "ativo", "descricao": "Serviço de validação de documentos fiscais com integração à SEFAZ", "usuario": "user_045", "timestamp": "2024-03-05T15:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-046", "nome": "Produto Chi 046", "status": "inativo", "descricao": "Módulo de importação CSV desativado após migração para API REST", "usuario": "user_046", "timestamp": "2024-03-06T09:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-047", "nome": "Produto Psi 047", "status": "pendente", "descricao": "Aguardando configuração de ambiente de homologação para testes finais", "usuario": "user_047", "timestamp": "2024-03-07T13:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-048", "nome": "Produto Omega 048", "status": "ativo", "descricao": "Plataforma de e-commerce com suporte a múltiplas moedas e regiões", "usuario": "user_048", "timestamp": "2024-03-08T10:15:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-049", "nome": "Produto Alpha 049", "status": "ativo", "descricao": "Serviço de recomendação personalizada baseado em histórico de uso", "usuario": "user_049", "timestamp": "2024-03-09T16:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-050", "nome": "Produto Beta 050", "status": "pendente", "descricao": "Módulo de integração com ERP aguardando mapeamento de campos", "usuario": "user_050", "timestamp": "2024-03-10T08:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-051", "nome": "Produto Gamma 051", "status": "ativo", "descricao": "Serviço de streaming de eventos para processamento em tempo real", "usuario": "user_051", "timestamp": "2024-03-11T11:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-052", "nome": "Produto Delta 052", "status": "inativo", "descricao": "Componente de sincronização offline desativado por falta de demanda", "usuario": "user_052", "timestamp": "2024-03-12T14:45:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-053", "nome": "Produto Epsilon 053", "status": "ativo", "descricao": "Módulo de controle de acesso baseado em papéis e atributos", "usuario": "user_053", "timestamp": "2024-03-13T09:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-054", "nome": "Produto Zeta 054", "status": "pendente", "descricao": "Produto em análise de viabilidade técnica para novo mercado vertical", "usuario": "user_054", "timestamp": "2024-03-14T15:15:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-055", "nome": "Produto Eta 055", "status": "ativo", "descricao": "Serviço de geração de relatórios PDF com templates customizáveis", "usuario": "user_055", "timestamp": "2024-03-15T10:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-056", "nome": "Produto Theta 056", "status": "ativo", "descricao": "Plataforma de gestão de identidades com provisionamento automático", "usuario": "user_056", "timestamp": "2024-03-16T12:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-057", "nome": "Produto Iota 057", "status": "inativo", "descricao": "Serviço de SMS descontinuado após migração para canal de WhatsApp", "usuario": "user_057", "timestamp": "2024-03-17T08:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-058", "nome": "Produto Kappa 058", "status": "pendente", "descricao": "Aguardando definição de SLA e métricas de disponibilidade do serviço", "usuario": "user_058", "timestamp": "2024-03-18T16:45:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-059", "nome": "Produto Lambda 059", "status": "ativo", "descricao": "Motor de regras de negócio configurável sem necessidade de código", "usuario": "user_059", "timestamp": "2024-03-19T11:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-060", "nome": "Produto Mu 060", "status": "ativo", "descricao": "Serviço de detecção de fraudes com modelos de machine learning", "usuario": "user_060", "timestamp": "2024-03-20T13:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-061", "nome": "Produto Nu 061", "status": "inativo", "descricao": "Módulo de chat interno substituído por solução de mercado integrada", "usuario": "user_061", "timestamp": "2024-04-01T09:15:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-062", "nome": "Produto Xi 062", "status": "pendente", "descricao": "Produto aguardando aprovação de orçamento para infraestrutura dedicada", "usuario": "user_062", "timestamp": "2024-04-02T14:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-063", "nome": "Produto Omicron 063", "status": "ativo", "descricao": "Serviço de assinatura digital com certificados ICP-Brasil homologados", "usuario": "user_063", "timestamp": "2024-04-03T10:45:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-064", "nome": "Produto Pi 064", "status": "ativo", "descricao": "Plataforma de treinamento online com suporte a vídeos e avaliações", "usuario": "user_064", "timestamp": "2024-04-04T08:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-065", "nome": "Produto Rho 065", "status": "ativo", "descricao": "Serviço de geocodificação para conversão de endereços em coordenadas", "usuario": "user_065", "timestamp": "2024-04-05T15:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-066", "nome": "Produto Sigma 066", "status": "inativo", "descricao": "Componente de exportação para Excel desativado por questões de licença", "usuario": "user_066", "timestamp": "2024-04-06T11:15:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-067", "nome": "Produto Tau 067", "status": "pendente", "descricao": "Módulo de integração bancária aguardando certificação do banco central", "usuario": "user_067", "timestamp": "2024-04-07T13:45:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-068", "nome": "Produto Upsilon 068", "status": "ativo", "descricao": "Serviço de análise de sentimentos para feedback de clientes em texto", "usuario": "user_068", "timestamp": "2024-04-08T09:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-069", "nome": "Produto Phi 069", "status": "ativo", "descricao": "Plataforma de gestão de projetos com rastreamento de tempo e custos", "usuario": "user_069", "timestamp": "2024-04-09T12:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-070", "nome": "Produto Chi 070", "status": "pendente", "descricao": "Aguardando migração de dados do sistema legado para nova estrutura", "usuario": "user_070", "timestamp": "2024-04-10T16:15:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-071", "nome": "Produto Psi 071", "status": "ativo", "descricao": "Serviço de monitoramento de uptime com alertas por e-mail e SMS", "usuario": "user_071", "timestamp": "2024-04-11T10:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-072", "nome": "Produto Omega 072", "status": "inativo", "descricao": "Módulo de faturamento antigo substituído por sistema ERP integrado", "usuario": "user_072", "timestamp": "2024-04-12T14:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-073", "nome": "Produto Alpha 073", "status": "ativo", "descricao": "Plataforma de análise de dados com suporte a SQL e visualizações", "usuario": "user_073", "timestamp": "2024-04-13T08:45:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-074", "nome": "Produto Beta 074", "status": "pendente", "descricao": "Produto em fase de prova de conceito com cliente estratégico piloto", "usuario": "user_074", "timestamp": "2024-04-14T11:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-075", "nome": "Produto Gamma 075", "status": "inativo", "descricao": "Serviço de controle de versão de documentos com histórico completo", "usuario": "user_075", "timestamp": "2024-04-15T15:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-076", "nome": "Produto Delta 076", "status": "inativo", "descricao": "Módulo de gestão de estoque com alertas de reposição automática", "usuario": "user_076", "timestamp": "2024-04-16T09:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-077", "nome": "Produto Epsilon 077", "status": "inativo", "descricao": "Serviço de videoconferência descontinuado após adoção de plataforma SaaS", "usuario": "user_077", "timestamp": "2024-04-17T13:15:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-078", "nome": "Produto Zeta 078", "status": "pendente", "descricao": "Aguardando definição de arquitetura de dados para novo produto digital", "usuario": "user_078", "timestamp": "2024-04-18T10:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-079", "nome": "Produto Eta 079", "status": "inativo", "descricao": "Serviço de OCR para extração de dados de documentos digitalizados", "usuario": "user_079", "timestamp": "2024-04-19T16:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-080", "nome": "Produto Theta 080", "status": "inativo", "descricao": "Plataforma de CRM com automação de marketing e funil de vendas", "usuario": "user_080", "timestamp": "2024-04-20T12:45:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-081", "nome": "Produto Iota 081", "status": "inativo", "descricao": "Módulo de integração com redes sociais desativado por mudança de API", "usuario": "user_081", "timestamp": "2024-05-01T09:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-082", "nome": "Produto Kappa 082", "status": "pendente", "descricao": "Produto aguardando revisão de preços e modelo de licenciamento", "usuario": "user_082", "timestamp": "2024-05-02T14:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-083", "nome": "Produto Lambda 083", "status": "inativo", "descricao": "Serviço de gestão de chaves criptográficas com rotação automática", "usuario": "user_083", "timestamp": "2024-05-03T10:15:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-084", "nome": "Produto Mu 084", "status": "inativo", "descricao": "Plataforma de IoT para coleta e análise de dados de sensores remotos", "usuario": "user_084", "timestamp": "2024-05-04T08:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-085", "nome": "Produto Nu 085", "status": "inativo", "descricao": "Serviço de balanceamento de carga com health checks configuráveis", "usuario": "user_085", "timestamp": "2024-05-05T15:45:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-086", "nome": "Produto Xi 086", "status": "inativo", "descricao": "Componente de renderização server-side substituído por solução estática", "usuario": "user_086", "timestamp": "2024-05-06T11:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-087", "nome": "Produto Omicron 087", "status": "pendente", "descricao": "Aguardando aprovação de arquitetura de segurança pelo CISO da empresa", "usuario": "user_087", "timestamp": "2024-05-07T13:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-088", "nome": "Produto Pi 088", "status": "inativo", "descricao": "Módulo de gestão de contratos com assinatura eletrônica integrada", "usuario": "user_088", "timestamp": "2024-05-08T09:45:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-089", "nome": "Produto Rho 089", "status": "inativo", "descricao": "Serviço de análise preditiva para manutenção preventiva de equipamentos", "usuario": "user_089", "timestamp": "2024-05-09T12:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-090", "nome": "Produto Sigma 090", "status": "pendente", "descricao": "Produto em processo de internacionalização para mercado europeu", "usuario": "user_090", "timestamp": "2024-05-10T16:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-091", "nome": "Produto Tau 091", "status": "inativo", "descricao": "Serviço de gestão de filas com priorização e dead-letter queue", "usuario": "user_091", "timestamp": "2024-05-11T10:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-092", "nome": "Produto Upsilon 092", "status": "inativo", "descricao": "Módulo de integração com legado COBOL desativado após modernização", "usuario": "user_092", "timestamp": "2024-05-12T14:15:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-093", "nome": "Produto Phi 093", "status": "pendente", "descricao": "Plataforma de gestão de ativos digitais com controle de licenças", "usuario": "user_093", "timestamp": "2024-05-13T08:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-094", "nome": "Produto Chi 094", "status": "pendente", "descricao": "Aguardando testes de performance em ambiente de produção simulado", "usuario": "user_094", "timestamp": "2024-05-14T11:45:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-095", "nome": "Produto Psi 095", "status": "pendente", "descricao": "Serviço de gestão de configurações com versionamento e rollback", "usuario": "user_095", "timestamp": "2024-05-15T15:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-096", "nome": "Produto Omega 096", "status": "pendente", "descricao": "Módulo de análise de código estático para detecção de vulnerabilidades", "usuario": "user_096", "timestamp": "2024-05-16T09:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-097", "nome": "Produto Alpha 097", "status": "inativo", "descricao": "Serviço de sincronização de calendários descontinuado por baixa adoção", "usuario": "user_097", "timestamp": "2024-05-17T13:00:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-098", "nome": "Produto Beta 098", "status": "pendente", "descricao": "Produto em fase de definição de roadmap e priorização de funcionalidades", "usuario": "user_098", "timestamp": "2024-05-18T10:30:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-099", "nome": "Produto Gamma 099", "status": "pendente", "descricao": "Serviço de gestão de dependências com análise de vulnerabilidades CVE", "usuario": "user_099", "timestamp": "2024-05-19T16:15:00Z"}
+{"index": {"_index": "produtos"}}
+{"id": "doc-100", "nome": "Produto Delta 100", "status": "pendente", "descricao": "Plataforma unificada de observabilidade com logs, métricas e traces", "usuario": "user_100", "timestamp": "2024-05-20T12:00:00Z"}
