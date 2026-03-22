@@ -796,6 +796,7 @@ HTMLEOF
       local ip
       ip=$(echo "$outputs" | jq -r ".[] | select(.OutputKey==\"EC2Aluno${i}IP\") | .OutputValue" 2>/dev/null || echo "N/A")
       local username="${PREFIXO}-aluno$(printf '%02d' $i)"
+      local linux_user="aluno$(printf '%02d' $i)"
 
       echo "                <div class=\"aluno-card\">"
       echo "                    <h3>👤 Aluno ${i} — ${username}</h3>"
@@ -808,8 +809,11 @@ HTMLEOF
       echo "                        <strong>IP Público:</strong> <code>${ip}</code>"
       echo "                    </div>"
       echo "                    <div class=\"info-item\">"
+      echo "                        <strong>Usuário Linux (SSH):</strong> ${linux_user}"
+      echo "                    </div>"
+      echo "                    <div class=\"info-item\">"
       echo "                        <strong>Comando SSH:</strong>"
-      echo "                        <div class=\"code-block\">ssh -i ${SSH_KEY_NAME}.pem ${username}@${ip}</div>"
+      echo "                        <div class=\"code-block\">ssh -i ${SSH_KEY_NAME}.pem ${linux_user}@${ip}</div>"
       echo "                    </div>"
       echo "                </div>"
     done
@@ -1005,7 +1009,7 @@ show_summary() {
 
   # Conexão SSH
   echo -e "${GREEN}🔌 CONEXÃO SSH:${NC}"
-  echo "  ssh -i ${SSH_PRIVATE_KEY} alunoXX@IP-PUBLICO"
+  echo "  ssh -i ${SSH_PRIVATE_KEY} alunoXX@IP-PUBLICO  (onde XX = 01, 02, 03...)"
   echo ""
 
   # IPs dos alunos
@@ -1014,7 +1018,7 @@ show_summary() {
   for (( i=1; i<=NUM_ALUNOS; i++ )); do
     local ip
     ip=$(echo "$outputs" | jq -r ".[] | select(.OutputKey==\"EC2Aluno${i}IP\") | .OutputValue" 2>/dev/null || echo "N/A")
-    local aluno_name="${PREFIXO}-aluno$(printf '%02d' $i)"
+    local aluno_name="aluno$(printf '%02d' $i)"
     echo -e "    ${GREEN}Aluno ${i}:${NC} ssh -i ${SSH_PRIVATE_KEY} ${aluno_name}@${ip}"
   done
 
