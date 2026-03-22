@@ -1,11 +1,16 @@
 #!/bin/bash
+# =============================================================================
+# Gerenciador do Ambiente do Curso OpenSearch
+# Gerencia TODAS as instâncias EC2 dos alunos de forma centralizada.
+# Adaptado do padrão do curso ElastiCache.
+# =============================================================================
+
 set -e
 
-# =============================================================================
-# Preparação do Curso — Gerenciamento do Ambiente
-# Comandos: status, start, stop, restart, cleanup, force-clean, info, connect,
-#           logs, costs
-# =============================================================================
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_STACK_NAME="curso-opensearch-stack"
+AWS_PROFILE=""
+AWS_OPTS=""
 
 # Cores
 RED='\033[0;31m'
@@ -14,332 +19,462 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-log()     { echo -e "${BLUE}[INFO]${NC} $1"; }
-success() { echo -e "${GREEN}[OK]${NC} $1"; }
-warning() { echo -e "${YELLOW}[AVISO]${NC} $1"; }
-error()   { echo -e "${RED}[ERRO]${NC} $1" >&2; }
+log()     { echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1"; }
+success() { echo -e "${GREEN}✅ $1${NC}"; }
+warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
+error()   { echo -e "${RED}❌ $1${NC}" >&2; }
 
-STACK_NAME="curso-opensearch-modulo6"
-PROFILE=""
-REGION=""
+# =============================================================================
+# Ajuda
+# =============================================================================
+show_help() {
+  cat << EOF
+🎓 Gerenciador do Curso AWS OpenSearch Service — Módulo 6
 
-# Parse de argumentos
-COMMAND="${1:-}"
-shift || true
+Uso: $0 <COMANDO> [OPÇÕES]
 
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    --profile) PROFILE="$2"; shift 2 ;;
-    --region)  REGION="$2"; shift 2 ;;
-    *) shift ;;
-  esac
-done
+COMANDOS:
+  status       Mostra status de todas as instâncias EC2 dos alunos
+  start        Inicia todas as instâncias EC2 paradas
+  stop         Para todas as instâncias EC2 em execução
+  restart      Reinicia todas as instâncias EC2
+  cleanup      Remove todo o ambiente (S3, SSH key, secret, stack)
+  force-clean  Cleanup sem confirmação interativa
+  info         Mostra informações detalhadas da stack (outputs, parâmetros, recursos)
+  connect ID   Conecta via SSH à instância EC2 do aluno especificado
+  logs         Exibe logs das instâncias (system logs via EC2)
+  costs        Exibe estimativa de custos dos recursos provisionados
 
-# Monta opções do AWS CLI
-AWS_OPTS=""
-if [ -n "$PROFILE" ]; then
-  AWS_OPTS="--profile ${PROFILE}"
-fi
-if [ -n "$REGION" ]; then
-  AWS_OPTS="${AWS_OPTS} --region ${REGION}"
-fi
+OPÇÕES:
+  --stack-name NOME    Nome da stack CloudFormation (padrão: ${DEFAULT_STACK_NAME})
+  --profile PERFIL     Perfil AWS a ser usado (opcional)
+  -h, --help           Mostra esta ajuda
 
-show_usage() {
-  echo ""
-  echo "Uso: $0 <comando> [--profile PROFILE] [--region REGION]"
-  echo ""
-  echo "Comandos disponíveis:"
-  echo "  status       Exibe estado atual do ambiente"
-  echo "  start        Inicia instâncias EC2 paradas"
-  echo "  stop         Para instâncias EC2"
-  echo "  restart      Reinicia instâncias EC2"
-  echo "  cleanup      Remove stack CloudFormation (com confirmação)"
-  echo "  force-clean  Remove stack sem confirmação"
-  echo "  info         Exibe informações detalhadas do ambiente"
-  echo "  connect      Gera comando SSH para túnel ao Dashboards"
-  echo "  logs         Exibe eventos recentes da stack"
-  echo "  costs        Estima custo acumulado"
-  echo ""
+EXEMPLOS:
+  $0 status
+  $0 start --stack-name meu-curso-stack
+  $0 connect aluno1 --profile producao
+  $0 cleanup --stack-name curso-opensearch-stack
+
+EOF
 }
 
-# Obtém output da stack
-get_stack_output() {
-  local key="$1"
-  aws cloudformation describe-stacks \
+# =============================================================================
+# Funções auxiliares
+# =============================================================================
+aws_cmd() {
+  aws ${AWS_OPTS} "$@"
+}
+
+stack_exists() {
+  aws_cmd cloudformation describe-stacks \
+    --stack-name "${STACK_NAME}" > /dev/null 2>&1
+}
+
+get_instances() {
+  aws_cmd cloudformation describe-stack-resources \
     --stack-name "${STACK_NAME}" \
-    ${AWS_OPTS} \
-    --query "Stacks[0].Outputs[?OutputKey=='${key}'].OutputValue" \
-    --output text 2>/dev/null || echo "N/A"
+    --query 'StackResources[?ResourceType==`AWS::EC2::Instance`].[LogicalResourceId,PhysicalResourceId]' \
+    --output text 2>/dev/null
 }
 
-# Obtém ID da instância bastion
-get_bastion_instance_id() {
-  aws ec2 describe-instances \
-    ${AWS_OPTS} \
-    --filters "Name=tag:Name,Values=curso-opensearch-bastion" "Name=instance-state-name,Values=running,stopped" \
-    --query 'Reservations[0].Instances[0].InstanceId' \
-    --output text 2>/dev/null || echo "N/A"
-}
-
-# ============================================================
-# Comandos
-# ============================================================
-
-cmd_status() {
-  echo ""
-  echo -e "${BLUE}========================================${NC}"
-  echo -e "${BLUE}  Status do Ambiente                     ${NC}"
-  echo -e "${BLUE}========================================${NC}"
-  echo ""
-
-  # Stack status
-  local stack_status
-  stack_status=$(aws cloudformation describe-stacks \
-    --stack-name "${STACK_NAME}" \
-    ${AWS_OPTS} \
-    --query 'Stacks[0].StackStatus' \
-    --output text 2>/dev/null) || {
-    error "Stack '${STACK_NAME}' não encontrada."
-    exit 1
-  }
-
-  case "$stack_status" in
-    CREATE_COMPLETE|UPDATE_COMPLETE)
-      echo -e "  Stack: ${GREEN}${stack_status}${NC}" ;;
-    *PROGRESS*)
-      echo -e "  Stack: ${YELLOW}${stack_status}${NC}" ;;
-    *FAILED*|*ROLLBACK*)
-      echo -e "  Stack: ${RED}${stack_status}${NC}" ;;
-    *)
-      echo -e "  Stack: ${stack_status}" ;;
-  esac
-
-  # Bastion status
-  local instance_id
-  instance_id=$(get_bastion_instance_id)
-  if [ "$instance_id" != "N/A" ] && [ "$instance_id" != "None" ]; then
-    local instance_state
-    instance_state=$(aws ec2 describe-instances \
-      ${AWS_OPTS} \
-      --instance-ids "${instance_id}" \
-      --query 'Reservations[0].Instances[0].State.Name' \
-      --output text 2>/dev/null || echo "unknown")
-    echo -e "  Bastion EC2: ${instance_state} (${instance_id})"
-  else
-    echo -e "  Bastion EC2: ${YELLOW}não encontrado${NC}"
+get_instance_ids() {
+  local instances_data
+  instances_data=$(get_instances)
+  if [ -z "$instances_data" ]; then
+    echo ""
+    return
   fi
-
-  # OpenSearch endpoint
-  local endpoint
-  endpoint=$(get_stack_output "OpenSearchEndpoint")
-  echo -e "  OpenSearch: ${endpoint}"
-  echo ""
+  echo "$instances_data" | awk '{print $2}'
 }
 
-cmd_start() {
-  echo ""
-  log "Iniciando instâncias EC2..."
-  local instance_id
-  instance_id=$(get_bastion_instance_id)
-  if [ "$instance_id" = "N/A" ] || [ "$instance_id" = "None" ]; then
-    error "Instância bastion não encontrada."
-    exit 1
-  fi
-  aws ec2 start-instances --instance-ids "${instance_id}" ${AWS_OPTS} > /dev/null
-  success "Instância ${instance_id} iniciando..."
-  log "Aguarde alguns minutos para a instância ficar disponível."
-  echo ""
-}
-
-cmd_stop() {
-  echo ""
-  log "Parando instâncias EC2..."
-  warning "O domínio OpenSearch não pode ser parado (apenas deletado)."
-  local instance_id
-  instance_id=$(get_bastion_instance_id)
-  if [ "$instance_id" = "N/A" ] || [ "$instance_id" = "None" ]; then
-    error "Instância bastion não encontrada."
-    exit 1
-  fi
-  aws ec2 stop-instances --instance-ids "${instance_id}" ${AWS_OPTS} > /dev/null
-  success "Instância ${instance_id} parando..."
-  echo ""
-}
-
-cmd_restart() {
-  echo ""
-  log "Reiniciando instâncias EC2..."
-  local instance_id
-  instance_id=$(get_bastion_instance_id)
-  if [ "$instance_id" = "N/A" ] || [ "$instance_id" = "None" ]; then
-    error "Instância bastion não encontrada."
-    exit 1
-  fi
-  aws ec2 reboot-instances --instance-ids "${instance_id}" ${AWS_OPTS} > /dev/null
-  success "Instância ${instance_id} reiniciando..."
-  echo ""
-}
-
-cmd_cleanup() {
-  echo ""
-  echo -e "${RED}========================================${NC}"
-  echo -e "${RED}  Remover Ambiente                       ${NC}"
-  echo -e "${RED}========================================${NC}"
-  echo ""
-  warning "Isso irá DELETAR toda a infraestrutura do curso:"
-  echo "  • Domínio OpenSearch"
-  echo "  • EC2 Bastion"
-  echo "  • VPC, Subnets, Security Groups"
-  echo "  • IAM Roles e Policies"
-  echo ""
-  read -rp "Tem certeza? Digite 'sim' para confirmar: " confirm
-  if [ "$confirm" != "sim" ]; then
-    log "Operação cancelada."
+check_stack() {
+  if ! stack_exists; then
+    warning "Stack '${STACK_NAME}' não encontrada."
+    log "Execute deploy-curso.sh para criar o ambiente."
     exit 0
   fi
+}
+
+# =============================================================================
+# Comando: status
+# =============================================================================
+cmd_status() {
+  check_stack
+
+  echo -e "${BLUE}📊 Status do Ambiente: ${STACK_NAME}${NC}"
+  echo "════════════════════════════════════════════════════════"
+
+  local stack_status
+  stack_status=$(aws_cmd cloudformation describe-stacks \
+    --stack-name "${STACK_NAME}" \
+    --query 'Stacks[0].StackStatus' --output text 2>/dev/null)
+  echo -e "  Stack Status: ${GREEN}${stack_status}${NC}"
   echo ""
+
+  local instance_ids
+  instance_ids=$(get_instance_ids)
+  if [ -z "$instance_ids" ]; then
+    warning "Nenhuma instância EC2 encontrada na stack."
+    return 0
+  fi
+
+  echo -e "${BLUE}🖥️  Instâncias EC2:${NC}"
+  printf "  %-22s %-12s %-16s %s\n" "INSTÂNCIA" "STATUS" "IP PÚBLICO" "NOME"
+  echo "  ────────────────────────────────────────────────────────────────"
+
+  local ids_array=()
+  while IFS= read -r id; do
+    ids_array+=("$id")
+  done <<< "$instance_ids"
+
+  aws_cmd ec2 describe-instances \
+    --instance-ids "${ids_array[@]}" \
+    --query 'Reservations[*].Instances[*].[InstanceId,State.Name,PublicIpAddress,Tags[?Key==`Name`].Value|[0]]' \
+    --output text 2>/dev/null | while IFS=$'\t' read -r iid state ip name; do
+    local color="${GREEN}"
+    if [ "$state" = "stopped" ]; then color="${RED}"; fi
+    if [ "$state" = "pending" ] || [ "$state" = "stopping" ]; then color="${YELLOW}"; fi
+    printf "  %-22s ${color}%-12s${NC} %-16s %s\n" "$iid" "$state" "${ip:-N/A}" "${name:-N/A}"
+  done
+
+  echo ""
+
+  # Estimativa de custos
+  local num_instances=${#ids_array[@]}
+  echo -e "${BLUE}💰 Estimativa de Custos (t3.micro):${NC}"
+  echo "  Instâncias: ${num_instances}"
+  echo "  ~\$0.0104/hora por instância"
+  echo "  ~\$$(echo "${num_instances} * 0.0104 * 24" | bc -l 2>/dev/null | head -c 6 || echo "N/A")/dia total"
+  echo ""
+}
+
+# =============================================================================
+# Comando: start
+# =============================================================================
+cmd_start() {
+  check_stack
+
+  local instance_ids
+  instance_ids=$(get_instance_ids)
+  if [ -z "$instance_ids" ]; then
+    warning "Nenhuma instância encontrada."
+    return 0
+  fi
+
+  local ids_array=()
+  while IFS= read -r id; do ids_array+=("$id"); done <<< "$instance_ids"
+
+  log "Iniciando ${#ids_array[@]} instâncias..."
+  aws_cmd ec2 start-instances --instance-ids "${ids_array[@]}" > /dev/null
+  success "Comando de start enviado para todas as instâncias."
+  log "Aguarde alguns minutos para que fiquem disponíveis."
+  echo "Execute '$0 status' para verificar o progresso."
+}
+
+# =============================================================================
+# Comando: stop
+# =============================================================================
+cmd_stop() {
+  check_stack
+
+  local instance_ids
+  instance_ids=$(get_instance_ids)
+  if [ -z "$instance_ids" ]; then
+    warning "Nenhuma instância encontrada."
+    return 0
+  fi
+
+  local ids_array=()
+  while IFS= read -r id; do ids_array+=("$id"); done <<< "$instance_ids"
+
+  log "Parando ${#ids_array[@]} instâncias..."
+  aws_cmd ec2 stop-instances --instance-ids "${ids_array[@]}" > /dev/null
+  success "Comando de stop enviado para todas as instâncias."
+  echo -e "${BLUE}💰 Custos de EC2 interrompidos (storage continua sendo cobrado).${NC}"
+}
+
+# =============================================================================
+# Comando: restart
+# =============================================================================
+cmd_restart() {
+  log "Reiniciando instâncias..."
+  cmd_stop
+  log "Aguardando 30 segundos antes de reiniciar..."
+  sleep 30
+  cmd_start
+}
+
+# =============================================================================
+# Comando: cleanup
+# =============================================================================
+cmd_cleanup() {
+  check_stack
+
+  echo -e "${RED}🗑️  ATENÇÃO: Cleanup do ambiente: ${STACK_NAME}${NC}"
+  echo -e "${RED}⚠️  ISSO IRÁ DELETAR TODOS OS RECURSOS!${NC}"
+  echo ""
+
+  read -rp "Digite 'DELETE' para confirmar a remoção completa: " confirm
+  if [ "$confirm" != "DELETE" ]; then
+    warning "Cleanup cancelado."
+    return 0
+  fi
+
   do_cleanup
 }
 
+# =============================================================================
+# Comando: force-clean
+# =============================================================================
 cmd_force_clean() {
-  echo ""
-  warning "Removendo stack '${STACK_NAME}' sem confirmação..."
+  log "Limpeza forçada (sem confirmação)..."
+  if ! stack_exists; then
+    warning "Stack '${STACK_NAME}' não encontrada. Limpando recursos locais..."
+    cleanup_local_files
+    return 0
+  fi
   do_cleanup
 }
 
 do_cleanup() {
-  log "Deletando stack '${STACK_NAME}'..."
-  aws cloudformation delete-stack \
-    --stack-name "${STACK_NAME}" \
-    ${AWS_OPTS} || {
-    error "Falha ao deletar stack."
-    exit 1
-  }
-  log "Aguardando exclusão da stack (pode levar 10-20 minutos)..."
-  aws cloudformation wait stack-delete-complete \
-    --stack-name "${STACK_NAME}" \
-    ${AWS_OPTS} 2>/dev/null || {
-    warning "Timeout aguardando exclusão. Verifique o console AWS."
-    exit 1
-  }
-  success "Stack '${STACK_NAME}' removida com sucesso."
-  echo ""
-}
+  local account_id
+  account_id=$(aws_cmd sts get-caller-identity --query Account --output text 2>/dev/null || echo "")
+  local region
+  region=$(aws_cmd configure get region 2>/dev/null || echo "us-east-1")
 
-cmd_info() {
-  echo ""
-  echo -e "${BLUE}========================================${NC}"
-  echo -e "${BLUE}  Informações do Ambiente                ${NC}"
-  echo -e "${BLUE}========================================${NC}"
-  echo ""
+  # Esvaziar buckets S3 relacionados
+  log "Esvaziando buckets S3..."
+  for bucket_suffix in "labs" "keys" "reports"; do
+    local bucket="${STACK_NAME%-stack}-${bucket_suffix}-${account_id}-${region}"
+    if aws_cmd s3api head-bucket --bucket "$bucket" 2>/dev/null; then
+      log "Esvaziando: ${bucket}"
+      aws_cmd s3 rm "s3://${bucket}" --recursive 2>/dev/null || true
+      aws_cmd s3 rb "s3://${bucket}" --force 2>/dev/null || true
+      success "Bucket removido: ${bucket}"
+    fi
+  done
 
-  local endpoint bastion_ip dashboards_url domain_arn
-  endpoint=$(get_stack_output "OpenSearchEndpoint")
-  bastion_ip=$(get_stack_output "BastionPublicIP")
-  dashboards_url=$(get_stack_output "OpenSearchDashboardsURL")
-  domain_arn=$(get_stack_output "OpenSearchDomainArn")
-
-  echo -e "  ${BLUE}Stack:${NC}              ${STACK_NAME}"
-  echo -e "  ${BLUE}OpenSearch Endpoint:${NC} ${endpoint}"
-  echo -e "  ${BLUE}Dashboards URL:${NC}     ${dashboards_url}"
-  echo -e "  ${BLUE}Domain ARN:${NC}         ${domain_arn}"
-  echo -e "  ${BLUE}Bastion IP:${NC}         ${bastion_ip}"
-  echo ""
-  echo -e "  ${YELLOW}Acesso SSH:${NC}"
-  echo -e "    ssh -i <sua-chave.pem> ec2-user@${bastion_ip}"
-  echo ""
-  echo -e "  ${YELLOW}Túnel para Dashboards:${NC}"
-  echo -e "    ssh -i <sua-chave.pem> -L 5601:${endpoint#https://}:5601 ec2-user@${bastion_ip}"
-  echo ""
-}
-
-cmd_connect() {
-  echo ""
-  local endpoint bastion_ip
-  endpoint=$(get_stack_output "OpenSearchEndpoint")
-  bastion_ip=$(get_stack_output "BastionPublicIP")
-
-  echo -e "${BLUE}========================================${NC}"
-  echo -e "${BLUE}  Comandos de Conexão                    ${NC}"
-  echo -e "${BLUE}========================================${NC}"
-  echo ""
-  echo -e "  ${YELLOW}SSH direto ao bastion:${NC}"
-  echo -e "    ssh -i <sua-chave.pem> ec2-user@${bastion_ip}"
-  echo ""
-  echo -e "  ${YELLOW}Túnel SSH para OpenSearch Dashboards:${NC}"
-  echo -e "    ssh -i <sua-chave.pem> -L 5601:${endpoint#https://}:5601 ec2-user@${bastion_ip}"
-  echo ""
-  echo -e "  Após o túnel, acesse: ${GREEN}http://localhost:5601${NC}"
-  echo ""
-}
-
-cmd_logs() {
-  echo ""
-  echo -e "${BLUE}========================================${NC}"
-  echo -e "${BLUE}  Eventos Recentes da Stack              ${NC}"
-  echo -e "${BLUE}========================================${NC}"
-  echo ""
-
-  aws cloudformation describe-stack-events \
-    --stack-name "${STACK_NAME}" \
-    ${AWS_OPTS} \
-    --query 'StackEvents[:15].[Timestamp,ResourceStatus,ResourceType,LogicalResourceId]' \
-    --output table 2>/dev/null || {
-    error "Não foi possível obter eventos da stack."
-    exit 1
-  }
-  echo ""
-}
-
-cmd_costs() {
-  echo ""
-  echo -e "${BLUE}========================================${NC}"
-  echo -e "${BLUE}  Estimativa de Custos                   ${NC}"
-  echo -e "${BLUE}========================================${NC}"
-  echo ""
-
-  local start_date end_date
-  start_date=$(date -u -v-7d '+%Y-%m-%d' 2>/dev/null || date -u -d '7 days ago' '+%Y-%m-%d' 2>/dev/null || echo "")
-  end_date=$(date -u '+%Y-%m-%d')
-
-  if [ -z "$start_date" ]; then
-    warning "Não foi possível calcular a data de início."
-    start_date="2024-01-01"
+  # Deletar chave SSH da AWS
+  local key_name="${STACK_NAME%-stack}-key"
+  if aws_cmd ec2 describe-key-pairs --key-names "$key_name" 2>/dev/null; then
+    log "Deletando chave SSH: ${key_name}"
+    aws_cmd ec2 delete-key-pair --key-name "$key_name" 2>/dev/null || true
+    success "Chave SSH deletada: ${key_name}"
   fi
 
-  log "Período: ${start_date} a ${end_date}"
+  # Deletar secret do Secrets Manager
+  local secret_name="${STACK_NAME%-stack}-senha"
+  if aws_cmd secretsmanager describe-secret --secret-id "$secret_name" 2>/dev/null; then
+    log "Deletando secret: ${secret_name}"
+    aws_cmd secretsmanager delete-secret \
+      --secret-id "$secret_name" \
+      --force-delete-without-recovery 2>/dev/null || true
+    success "Secret deletado: ${secret_name}"
+  fi
+
+  # Deletar stack CloudFormation
+  log "Deletando stack CloudFormation: ${STACK_NAME}..."
+  aws_cmd cloudformation delete-stack --stack-name "${STACK_NAME}"
+  log "Aguardando deleção completa (pode levar alguns minutos)..."
+
+  if aws_cmd cloudformation wait stack-delete-complete --stack-name "${STACK_NAME}" 2>/dev/null; then
+    success "Stack deletada com sucesso!"
+  else
+    error "Falha na deleção da stack. Verifique o console AWS."
+    log "Eventos de erro:"
+    aws_cmd cloudformation describe-stack-events \
+      --stack-name "${STACK_NAME}" \
+      --query 'StackEvents[?ResourceStatus==`DELETE_FAILED`].[LogicalResourceId,ResourceStatusReason]' \
+      --output table 2>/dev/null || true
+    return 1
+  fi
+
+  cleanup_local_files
+  success "Cleanup concluído! Todos os custos foram interrompidos."
+}
+
+cleanup_local_files() {
+  log "Limpando arquivos locais..."
+  rm -rf "${SCRIPT_DIR}/.ssh-keys"
+  rm -f "${SCRIPT_DIR}/template-opensearch.yaml"
+  rm -f "${SCRIPT_DIR}/relatorio-acesso.html"
+  success "Arquivos locais removidos."
+}
+
+# =============================================================================
+# Comando: info
+# =============================================================================
+cmd_info() {
+  check_stack
+
+  echo -e "${BLUE}📋 Informações Detalhadas: ${STACK_NAME}${NC}"
+  echo "════════════════════════════════════════════════════════"
   echo ""
 
-  aws ce get-cost-and-usage \
-    --time-period "Start=${start_date},End=${end_date}" \
-    --granularity DAILY \
-    --metrics "UnblendedCost" \
-    --filter "{\"Tags\":{\"Key\":\"Projeto\",\"Values\":[\"Curso-OpenSearch-Modulo6\"]}}" \
-    ${AWS_OPTS} \
-    --query 'ResultsByTime[].[TimePeriod.Start,Total.UnblendedCost.Amount]' \
-    --output table 2>/dev/null || {
-    warning "Não foi possível obter dados de custo."
-    warning "Verifique se o Cost Explorer está habilitado na conta."
+  echo -e "${BLUE}📊 Outputs da Stack:${NC}"
+  aws_cmd cloudformation describe-stacks \
+    --stack-name "${STACK_NAME}" \
+    --query 'Stacks[0].Outputs[*].[OutputKey,OutputValue]' \
+    --output table 2>/dev/null || warning "Sem outputs disponíveis."
+  echo ""
+
+  echo -e "${BLUE}🏗️  Recursos Criados:${NC}"
+  aws_cmd cloudformation describe-stack-resources \
+    --stack-name "${STACK_NAME}" \
+    --query 'StackResources[*].[ResourceType,LogicalResourceId,ResourceStatus]' \
+    --output table 2>/dev/null || warning "Sem recursos disponíveis."
+  echo ""
+
+  echo -e "${BLUE}📝 Parâmetros:${NC}"
+  aws_cmd cloudformation describe-stacks \
+    --stack-name "${STACK_NAME}" \
+    --query 'Stacks[0].Parameters[*].[ParameterKey,ParameterValue]' \
+    --output table 2>/dev/null || warning "Sem parâmetros disponíveis."
+}
+
+# =============================================================================
+# Comando: connect
+# =============================================================================
+cmd_connect() {
+  local aluno_id="$1"
+  if [ -z "$aluno_id" ]; then
+    error "Especifique o ID do aluno (ex: aluno1)"
+    echo "Uso: $0 connect <ALUNO_ID>"
+    exit 1
+  fi
+
+  check_stack
+
+  # Buscar IP do aluno nos outputs
+  local aluno_num
+  aluno_num=$(echo "$aluno_id" | grep -oE '[0-9]+$' || echo "")
+  if [ -z "$aluno_num" ]; then
+    error "ID do aluno inválido: ${aluno_id}. Use formato: aluno1, aluno2, etc."
+    exit 1
+  fi
+
+  local ip
+  ip=$(aws_cmd cloudformation describe-stacks \
+    --stack-name "${STACK_NAME}" \
+    --query "Stacks[0].Outputs[?OutputKey=='EC2Aluno${aluno_num}IP'].OutputValue" \
+    --output text 2>/dev/null)
+
+  if [ -z "$ip" ] || [ "$ip" = "None" ]; then
+    error "IP não encontrado para ${aluno_id}."
+    return 1
+  fi
+
+  local key_file="${SCRIPT_DIR}/.ssh-keys/${STACK_NAME%-stack}-key"
+  if [ ! -f "$key_file" ]; then
+    error "Chave SSH não encontrada: ${key_file}"
+    warning "Baixe a chave do S3 ou execute deploy-curso.sh novamente."
+    return 1
+  fi
+
+  success "Conectando a ${aluno_id} (${ip})..."
+  echo -e "${YELLOW}Use 'exit' para sair da sessão SSH.${NC}"
+  echo ""
+  ssh -i "$key_file" -o StrictHostKeyChecking=no "ec2-user@${ip}"
+}
+
+# =============================================================================
+# Comando: logs
+# =============================================================================
+cmd_logs() {
+  check_stack
+
+  local instance_ids
+  instance_ids=$(get_instance_ids)
+  if [ -z "$instance_ids" ]; then
+    warning "Nenhuma instância encontrada."
+    return 0
+  fi
+
+  echo -e "${BLUE}📜 Logs das Instâncias:${NC}"
+  echo ""
+
+  while IFS= read -r iid; do
+    echo -e "${BLUE}--- ${iid} ---${NC}"
+    aws_cmd ec2 get-console-output \
+      --instance-id "$iid" \
+      --query 'Output' --output text 2>/dev/null | tail -20 || warning "Sem logs para ${iid}"
     echo ""
-    echo -e "  ${YELLOW}Estimativa manual:${NC}"
-    echo -e "    OpenSearch t3.small.search : ~\$0.036/hora (~\$0.86/dia)"
-    echo -e "    EC2 t3.micro               : ~\$0.0104/hora (~\$0.25/dia)"
-    echo -e "    EBS 10GB gp3               : ~\$0.08/dia"
-    echo -e "    ${GREEN}Total estimado: ~\$1.19/dia${NC}"
-  }
+  done <<< "$instance_ids"
+}
+
+# =============================================================================
+# Comando: costs
+# =============================================================================
+cmd_costs() {
+  check_stack
+
+  local instance_ids
+  instance_ids=$(get_instance_ids)
+  local num_instances=0
+  if [ -n "$instance_ids" ]; then
+    num_instances=$(echo "$instance_ids" | wc -l | tr -d ' ')
+  fi
+
+  echo -e "${BLUE}💰 Estimativa de Custos — ${STACK_NAME}${NC}"
+  echo "════════════════════════════════════════════════════════"
+  echo ""
+  echo "  Recurso                    Custo/hora    Custo/dia"
+  echo "  ─────────────────────────  ──────────    ─────────"
+  printf "  EC2 t3.micro (x%d)          \$%.4f       \$%.2f\n" \
+    "$num_instances" \
+    "$(echo "$num_instances * 0.0104" | bc -l 2>/dev/null || echo "0")" \
+    "$(echo "$num_instances * 0.0104 * 24" | bc -l 2>/dev/null || echo "0")"
+  echo "  NAT Gateway                 \$0.0450       \$1.08"
+  echo "  EBS (10GB gp3 x${num_instances})          ~\$0.0033       ~\$0.08"
+  echo "  ─────────────────────────  ──────────    ─────────"
+  printf "  TOTAL ESTIMADO              ~\$%.4f      ~\$%.2f\n" \
+    "$(echo "$num_instances * 0.0104 + 0.045 + $num_instances * 0.0033" | bc -l 2>/dev/null || echo "0")" \
+    "$(echo "($num_instances * 0.0104 + 0.045 + $num_instances * 0.0033) * 24" | bc -l 2>/dev/null || echo "0")"
+  echo ""
+  echo -e "  ${YELLOW}Nota: OpenSearch Domain (criado pelo aluno) não está incluído.${NC}"
+  echo -e "  ${YELLOW}t3.small.search: ~\$0.036/hora (~\$0.86/dia) por aluno.${NC}"
   echo ""
 }
 
 # =============================================================================
-# Execução principal
+# Parse de argumentos
 # =============================================================================
+STACK_NAME="${DEFAULT_STACK_NAME}"
+COMMAND=""
+EXTRA_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --stack-name) STACK_NAME="$2"; shift 2 ;;
+    --profile)    AWS_PROFILE="$2"; AWS_OPTS="--profile ${2}"; shift 2 ;;
+    -h|--help)    show_help; exit 0 ;;
+    status|start|stop|restart|cleanup|force-clean|info|connect|logs|costs)
+      COMMAND="$1"; shift ;;
+    *) EXTRA_ARGS+=("$1"); shift ;;
+  esac
+done
 
 if [ -z "$COMMAND" ]; then
-  show_usage
+  error "Comando não especificado."
+  echo ""
+  show_help
   exit 1
 fi
 
-case "$COMMAND" in
+# Verificar AWS CLI
+if ! aws_cmd sts get-caller-identity > /dev/null 2>&1; then
+  error "AWS CLI não configurado ou sem permissões."
+  if [ -n "$AWS_PROFILE" ]; then
+    error "Verifique se o perfil '${AWS_PROFILE}' está configurado."
+  else
+    error "Execute: aws configure"
+  fi
+  exit 1
+fi
+
+# Executar comando
+case $COMMAND in
   status)      cmd_status ;;
   start)       cmd_start ;;
   stop)        cmd_stop ;;
@@ -347,13 +482,8 @@ case "$COMMAND" in
   cleanup)     cmd_cleanup ;;
   force-clean) cmd_force_clean ;;
   info)        cmd_info ;;
-  connect)     cmd_connect ;;
+  connect)     cmd_connect "${EXTRA_ARGS[0]}" ;;
   logs)        cmd_logs ;;
   costs)       cmd_costs ;;
-  help|--help|-h) show_usage ;;
-  *)
-    error "Comando desconhecido: ${COMMAND}"
-    show_usage
-    exit 1
-    ;;
+  *)           error "Comando desconhecido: ${COMMAND}"; show_help; exit 1 ;;
 esac

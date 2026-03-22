@@ -1,243 +1,159 @@
 #!/bin/bash
+# =============================================================================
+# Setup do Aluno — Configuração Automática da EC2 via UserData
+# Este script é baixado do S3 e executado automaticamente no boot da instância.
+# Adaptado do padrão do curso ElastiCache.
+#
+# NÃO configura OPENSEARCH_ENDPOINT, OPENSEARCH_USER ou OPENSEARCH_PASS.
+# O aluno configura essas variáveis no Lab 0 após criar seu OpenSearch Domain.
+# =============================================================================
+
 set -e
 
-# =============================================================================
-# Preparação do Curso — Setup do Aluno
-# Configura o ambiente do aluno na EC2 bastion
-# Instala dependências, clona repositório e configura variáveis de ambiente
-# =============================================================================
+# Parâmetros recebidos via UserData
+ALUNO_ID=$1
+AWS_REGION=$2
+ACCESS_KEY=$3
+SECRET_KEY=$4
 
-# Cores
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+LOG_FILE="/var/log/setup-aluno.log"
 
-log()     { echo -e "${BLUE}[INFO]${NC} $1"; }
-success() { echo -e "${GREEN}[OK]${NC} $1"; }
-warning() { echo -e "${YELLOW}[AVISO]${NC} $1"; }
-error()   { echo -e "${RED}[ERRO]${NC} $1" >&2; }
-
-# Valores padrão
-ENDPOINT=""
-USER="admin"
-PASS=""
-REPO_URL="https://github.com/DevWizardsOps/Curso-opensearch.git"
-REGION="${AWS_REGION:-us-east-1}"
-
-# Parse de argumentos
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    --endpoint) ENDPOINT="$2"; shift 2 ;;
-    --user)     USER="$2"; shift 2 ;;
-    --pass)     PASS="$2"; shift 2 ;;
-    --region)   REGION="$2"; shift 2 ;;
-    --help|-h)
-      echo "Uso: $0 --endpoint URL --user USER --pass PASS [--region REGION]"
-      echo ""
-      echo "Opções:"
-      echo "  --endpoint URL   Endpoint do OpenSearch (obrigatório)"
-      echo "  --user USER      Usuário master (padrão: admin)"
-      echo "  --pass PASS      Senha master (obrigatório)"
-      echo "  --region REGION  Região AWS (padrão: us-east-1)"
-      exit 0
-      ;;
-    *) error "Argumento desconhecido: $1"; exit 1 ;;
-  esac
-done
-
-echo ""
-echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}  Setup do Aluno                         ${NC}"
-echo -e "${BLUE}  Curso AWS OpenSearch — Módulo 6        ${NC}"
-echo -e "${BLUE}========================================${NC}"
-echo ""
-
-# Valida parâmetros obrigatórios
-if [ -z "$ENDPOINT" ]; then
-  error "Endpoint do OpenSearch é obrigatório."
-  echo "  Uso: $0 --endpoint https://seu-dominio.us-east-1.es.amazonaws.com --pass SuaSenha"
-  exit 1
-fi
-
-if [ -z "$PASS" ]; then
-  error "Senha do OpenSearch é obrigatória."
-  echo "  Uso: $0 --endpoint ${ENDPOINT} --pass SuaSenha"
-  exit 1
-fi
-
-# ============================================================
-# PASSO 1: Instalar dependências
-# ============================================================
-echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}  PASSO 1/4 — Instalar Dependências      ${NC}"
-echo -e "${BLUE}========================================${NC}"
-echo ""
-
-# curl
-if command -v curl &> /dev/null; then
-  success "curl já instalado: $(curl --version | head -1)"
-else
-  log "Instalando curl..."
-  sudo yum install -y curl > /dev/null 2>&1 || sudo apt-get install -y curl > /dev/null 2>&1
-  success "curl instalado."
-fi
-
-# jq
-if command -v jq &> /dev/null; then
-  success "jq já instalado: $(jq --version)"
-else
-  log "Instalando jq..."
-  sudo yum install -y jq > /dev/null 2>&1 || sudo apt-get install -y jq > /dev/null 2>&1
-  success "jq instalado."
-fi
-
-# git
-if command -v git &> /dev/null; then
-  success "git já instalado: $(git --version)"
-else
-  log "Instalando git..."
-  sudo yum install -y git > /dev/null 2>&1 || sudo apt-get install -y git > /dev/null 2>&1
-  success "git instalado."
-fi
-
-# aws-cli v2
-if command -v aws &> /dev/null; then
-  success "aws-cli já instalado: $(aws --version 2>&1 | head -1)"
-else
-  log "Instalando aws-cli v2..."
-  curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
-  unzip -q /tmp/awscliv2.zip -d /tmp/
-  sudo /tmp/aws/install > /dev/null 2>&1
-  rm -rf /tmp/aws /tmp/awscliv2.zip
-  success "aws-cli v2 instalado: $(aws --version 2>&1 | head -1)"
-fi
-echo ""
-
-# ============================================================
-# PASSO 2: Clonar repositório
-# ============================================================
-echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}  PASSO 2/4 — Clonar Repositório         ${NC}"
-echo -e "${BLUE}========================================${NC}"
-echo ""
-
-REPO_DIR="$HOME/Curso-opensearch"
-
-if [ -d "$REPO_DIR" ]; then
-  warning "Repositório já existe em ${REPO_DIR}."
-  log "Atualizando..."
-  cd "$REPO_DIR"
-  git pull --quiet 2>/dev/null || warning "Não foi possível atualizar. Usando versão existente."
-  cd - > /dev/null
-else
-  log "Clonando repositório..."
-  git clone --quiet "${REPO_URL}" "${REPO_DIR}" 2>/dev/null || {
-    error "Falha ao clonar repositório: ${REPO_URL}"
-    warning "Você pode clonar manualmente depois: git clone ${REPO_URL}"
-  }
-fi
-
-if [ -d "$REPO_DIR" ]; then
-  success "Repositório disponível em: ${REPO_DIR}"
-  # Torna scripts executáveis
-  find "${REPO_DIR}" -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
-  success "Scripts marcados como executáveis."
-fi
-echo ""
-
-# ============================================================
-# PASSO 3: Configurar variáveis de ambiente
-# ============================================================
-echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}  PASSO 3/4 — Configurar Variáveis       ${NC}"
-echo -e "${BLUE}========================================${NC}"
-echo ""
-
-BASHRC="$HOME/.bashrc"
-
-# Remove configurações anteriores do curso
-sed -i '/# Curso OpenSearch - Módulo 6/d' "$BASHRC" 2>/dev/null || true
-sed -i '/export OPENSEARCH_ENDPOINT=/d' "$BASHRC" 2>/dev/null || true
-sed -i '/export OPENSEARCH_USER=/d' "$BASHRC" 2>/dev/null || true
-sed -i '/export OPENSEARCH_PASS=/d' "$BASHRC" 2>/dev/null || true
-sed -i '/export AWS_REGION=.*# curso-opensearch/d' "$BASHRC" 2>/dev/null || true
-
-# Adiciona novas configurações
-{
-  echo ""
-  echo "# Curso OpenSearch - Módulo 6"
-  echo "export OPENSEARCH_ENDPOINT=\"${ENDPOINT}\""
-  echo "export OPENSEARCH_USER=\"${USER}\""
-  echo "export OPENSEARCH_PASS=\"${PASS}\""
-  echo "export AWS_REGION=\"${REGION}\" # curso-opensearch"
-} >> "$BASHRC"
-
-# Exporta para a sessão atual
-export OPENSEARCH_ENDPOINT="${ENDPOINT}"
-export OPENSEARCH_USER="${USER}"
-export OPENSEARCH_PASS="${PASS}"
-export AWS_REGION="${REGION}"
-
-success "Variáveis configuradas em ${BASHRC}:"
-echo -e "  OPENSEARCH_ENDPOINT = ${ENDPOINT}"
-echo -e "  OPENSEARCH_USER     = ${USER}"
-echo -e "  OPENSEARCH_PASS     = ********"
-echo -e "  AWS_REGION          = ${REGION}"
-echo ""
-
-# ============================================================
-# PASSO 4: Testar conectividade
-# ============================================================
-echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}  PASSO 4/4 — Testar Conectividade       ${NC}"
-echo -e "${BLUE}========================================${NC}"
-echo ""
-
-log "Testando conexão com o OpenSearch..."
-response=$(curl --fail --silent --show-error \
-  -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
-  "${OPENSEARCH_ENDPOINT}/_cluster/health" 2>&1) || {
-  warning "Não foi possível conectar ao OpenSearch."
-  warning "Detalhes: ${response}"
-  warning "Verifique o endpoint e as credenciais."
-  echo ""
-  echo -e "  ${YELLOW}O setup foi concluído, mas a conectividade falhou.${NC}"
-  echo -e "  ${YELLOW}Verifique se o domínio OpenSearch está ativo e acessível.${NC}"
-  echo ""
-  exit 0
+# Função de log
+log() {
+  echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1" | tee -a "${LOG_FILE}"
 }
 
-cluster_status=$(echo "$response" | jq -r '.status' 2>/dev/null || echo "unknown")
-cluster_name=$(echo "$response" | jq -r '.cluster_name' 2>/dev/null || echo "unknown")
+log "Iniciando setup para ${ALUNO_ID} na região ${AWS_REGION}"
 
-case "$cluster_status" in
-  green)  echo -e "  Cluster: ${GREEN}${cluster_status}${NC} 🟢" ;;
-  yellow) echo -e "  Cluster: ${YELLOW}${cluster_status}${NC} 🟡" ;;
-  red)    echo -e "  Cluster: ${RED}${cluster_status}${NC} 🔴" ;;
-esac
-echo -e "  Nome: ${cluster_name}"
-echo ""
+# =============================================================================
+# Instalar ferramentas
+# =============================================================================
+install_tool() {
+  local tool="$1"
+  log "Instalando ${tool}..."
+  if ! yum install -y "${tool}" >> "${LOG_FILE}" 2>&1; then
+    log "[WARN] Falha ao instalar ${tool}. Continuando..."
+  fi
+}
 
-# ============================================================
-# Resumo Final
-# ============================================================
-echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}  ✅ Setup Concluído!                     ${NC}"
-echo -e "${GREEN}========================================${NC}"
-echo ""
-echo -e "  ${BLUE}Repositório:${NC}  ${REPO_DIR}"
-echo -e "  ${BLUE}Endpoint:${NC}     ${ENDPOINT}"
-echo -e "  ${BLUE}Região:${NC}       ${REGION}"
-echo -e "  ${BLUE}Cluster:${NC}      ${cluster_status}"
-echo ""
-echo -e "  ${YELLOW}Para começar os labs:${NC}"
-echo -e "    cd ${REPO_DIR}/modulo6-lab/lab1-bulk"
-echo -e "    ./setup.sh"
-echo -e "    ./ingestao-individual.sh"
-echo -e "    ./ingestao-bulk.sh"
-echo ""
-echo -e "  ${YELLOW}Recarregue o shell para aplicar as variáveis:${NC}"
-echo -e "    source ~/.bashrc"
-echo ""
+log "Atualizando pacotes..."
+yum update -y >> "${LOG_FILE}" 2>&1 || log "[WARN] Falha no yum update. Continuando..."
+
+install_tool "curl"
+install_tool "jq"
+install_tool "git"
+install_tool "aws-cli"
+
+# =============================================================================
+# Criar usuário Linux para o aluno
+# =============================================================================
+log "Criando usuário ${ALUNO_ID}..."
+useradd -m -s /bin/bash "${ALUNO_ID}"
+echo "${ALUNO_ID} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Copiar chave SSH do ec2-user para o aluno
+mkdir -p "/home/${ALUNO_ID}/.ssh"
+cp /home/ec2-user/.ssh/authorized_keys "/home/${ALUNO_ID}/.ssh/authorized_keys"
+chown -R "${ALUNO_ID}:${ALUNO_ID}" "/home/${ALUNO_ID}/.ssh"
+chmod 700 "/home/${ALUNO_ID}/.ssh"
+chmod 600 "/home/${ALUNO_ID}/.ssh/authorized_keys"
+
+log "Usuário ${ALUNO_ID} criado com sucesso"
+
+# =============================================================================
+# Configurar AWS CLI com credenciais do aluno
+# =============================================================================
+log "Configurando AWS CLI para ${ALUNO_ID}..."
+sudo -u "${ALUNO_ID}" aws configure set aws_access_key_id "${ACCESS_KEY}"
+sudo -u "${ALUNO_ID}" aws configure set aws_secret_access_key "${SECRET_KEY}"
+sudo -u "${ALUNO_ID}" aws configure set default.region "${AWS_REGION}"
+sudo -u "${ALUNO_ID}" aws configure set default.output json
+
+log "AWS CLI configurado"
+
+# =============================================================================
+# Clonar repositório do curso
+# =============================================================================
+log "Clonando repositório do curso..."
+cd "/home/${ALUNO_ID}"
+sudo -u "${ALUNO_ID}" git clone https://github.com/DevWizardsOps/Curso-opensearch.git >> "${LOG_FILE}" 2>&1 || {
+  log "[WARN] Falha ao clonar repositório. Continuando..."
+}
+
+# Remover diretório preparacao-curso da cópia do aluno (é do instrutor)
+sudo -u "${ALUNO_ID}" rm -rf "/home/${ALUNO_ID}/Curso-opensearch/preparacao-curso"
+log "Repositório clonado e preparacao-curso removido"
+
+# Configurar timezone
+timedatectl set-timezone America/Sao_Paulo >> "${LOG_FILE}" 2>&1 || true
+
+# =============================================================================
+# Criar arquivo de boas-vindas
+# =============================================================================
+cat > "/home/${ALUNO_ID}/BEM-VINDO.txt" << 'EOFWELCOME'
+╔══════════════════════════════════════════════════════════════╗
+║         BEM-VINDO AO CURSO AWS OPENSEARCH SERVICE            ║
+║                     Módulo 6                                 ║
+╚══════════════════════════════════════════════════════════════╝
+
+Olá ALUNO_PLACEHOLDER!
+
+Seu ambiente está configurado e pronto para uso.
+
+📋 INFORMAÇÕES DO AMBIENTE:
+  - Usuário Linux: ALUNO_PLACEHOLDER
+  - Região AWS: REGION_PLACEHOLDER
+
+🔧 FERRAMENTAS INSTALADAS:
+  ✓ AWS CLI, curl, jq, git
+
+🚀 PRIMEIROS PASSOS:
+  1. Teste suas credenciais: aws sts get-caller-identity
+  2. Acesse o Lab 0: cd ~/Curso-opensearch/modulo6-lab/lab0-setup/
+  3. Siga o README.md para criar seu OpenSearch Domain
+  4. Configure as variáveis: ./configurar-ambiente.sh
+  5. Valide a conexão: ./testar-conexao.sh
+  6. Inicie os labs: cd ~/Curso-opensearch/modulo6-lab/lab1-bulk/
+
+⚠️  IMPORTANTE:
+  Você precisa criar seu próprio OpenSearch Domain no Lab 0
+  antes de iniciar os demais labs.
+
+Bom curso! 🎓
+EOFWELCOME
+
+# Substituir placeholders
+sed -i "s/ALUNO_PLACEHOLDER/${ALUNO_ID}/g" "/home/${ALUNO_ID}/BEM-VINDO.txt"
+sed -i "s/REGION_PLACEHOLDER/${AWS_REGION}/g" "/home/${ALUNO_ID}/BEM-VINDO.txt"
+
+# =============================================================================
+# Customizar .bashrc
+# =============================================================================
+cat >> "/home/${ALUNO_ID}/.bashrc" << 'EOFBASHRC'
+
+# Aliases úteis — Curso OpenSearch
+alias ll='ls -lah'
+alias curso='cd ~/Curso-opensearch/modulo6-lab'
+alias lab0='cd ~/Curso-opensearch/modulo6-lab/lab0-setup'
+alias awsid='aws sts get-caller-identity'
+
+# Mostrar boas-vindas no login
+cat ~/BEM-VINDO.txt
+
+export ALUNO_ID=ALUNO_ID_PLACEHOLDER
+EOFBASHRC
+
+sed -i "s/ALUNO_ID_PLACEHOLDER/${ALUNO_ID}/g" "/home/${ALUNO_ID}/.bashrc"
+
+# =============================================================================
+# Ajustar permissões finais
+# =============================================================================
+chown -R "${ALUNO_ID}:${ALUNO_ID}" "/home/${ALUNO_ID}/"
+
+# Marcar setup como completo
+echo "Setup completo em $(date)" > "/home/${ALUNO_ID}/setup-complete.txt"
+chown "${ALUNO_ID}:${ALUNO_ID}" "/home/${ALUNO_ID}/setup-complete.txt"
+
+log "Setup concluído com sucesso para ${ALUNO_ID}"
+
+exit 0
