@@ -68,7 +68,7 @@ Recursos criados:
 ./manage-curso.sh stop                            # Parar instâncias (economia)
 ./manage-curso.sh restart                         # Reiniciar instâncias
 ./manage-curso.sh info                            # Informações detalhadas da stack
-./manage-curso.sh connect aluno1                  # SSH para instância do aluno
+./manage-curso.sh connect aluno01                 # SSH para instância do aluno
 ./manage-curso.sh costs                           # Estimativa de custos
 ./manage-curso.sh cleanup                         # Remover TUDO (com confirmação)
 ./manage-curso.sh force-clean                     # Remover TUDO (sem confirmação)

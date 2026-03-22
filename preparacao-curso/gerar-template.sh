@@ -447,16 +447,16 @@ for (( i=1; i<=NUM_ALUNOS; i++ )); do
           #!/bin/bash
           aws s3 cp s3://\${S3BucketName}/setup-aluno.sh /tmp/setup-aluno.sh
           chmod +x /tmp/setup-aluno.sh
-          /tmp/setup-aluno.sh "aluno${i}" "\${AWS::Region}" "\${AccessKeyAluno${i}}" "\${AccessKeyAluno${i}.SecretAccessKey}"
+          /tmp/setup-aluno.sh "aluno$(printf '%02d' $i)" "\${AWS::Region}" "\${AccessKeyAluno${i}}" "\${AccessKeyAluno${i}.SecretAccessKey}"
       Tags:
         - Key: Name
-          Value: !Sub '\${Prefixo}-aluno-${i}'
+          Value: !Sub '\${Prefixo}-aluno-$(printf '%02d' $i)'
 
   IAMUserAluno${i}:
     Type: AWS::IAM::User
     Condition: CriarAluno${i}
     Properties:
-      UserName: !Sub '\${Prefixo}-aluno${i}'
+      UserName: !Sub '\${Prefixo}-aluno$(printf '%02d' $i)'
       Groups:
         - !Ref CursoIAMGroup
       LoginProfile:

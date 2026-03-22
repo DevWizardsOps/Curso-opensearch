@@ -1,3 +1,7 @@
 # Kiro IDE — specs e configurações locais
 .kiro/
 preparacao-curso/*.pem
+preparacao-curso/.ssh-keys/
+preparacao-curso/.ssh-key-info
+preparacao-curso/template-opensearch.yaml
+preparacao-curso/relatorio-acesso.html

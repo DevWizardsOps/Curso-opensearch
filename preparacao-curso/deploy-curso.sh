@@ -186,24 +186,17 @@ interactive_prompts() {
   echo ""
 
   # 5. Senha do console AWS para os alunos
-  echo -e "${YELLOW}A senha será usada para login no console AWS dos alunos.${NC}"
-  echo -e "${YELLOW}Requisitos: mínimo 8 caracteres, maiúscula, minúscula, número e especial.${NC}"
-  while true; do
-    read -rsp "$(echo -e "${BLUE}[?]${NC} Senha do console AWS: ")" CONSOLE_PASSWORD
-    echo ""
-    if [ ${#CONSOLE_PASSWORD} -lt 8 ]; then
-      warning "Senha deve ter no mínimo 8 caracteres. Tente novamente."
-      continue
-    fi
-    read -rsp "$(echo -e "${BLUE}[?]${NC} Confirme a senha: ")" CONSOLE_PASSWORD_CONFIRM
-    echo ""
-    if [ "$CONSOLE_PASSWORD" != "$CONSOLE_PASSWORD_CONFIRM" ]; then
-      warning "Senhas não conferem. Tente novamente."
-      continue
-    fi
-    break
+  echo -e "${YELLOW}Configuração de Senha do Console:${NC}"
+  read -rp "$(echo -e "${BLUE}[?]${NC} Senha padrão para os alunos [Extractta@2026]: ")" CONSOLE_PASSWORD
+  CONSOLE_PASSWORD="${CONSOLE_PASSWORD:-Extractta@2026}"
+
+  # Validar senha (mínimo 8 caracteres)
+  while [ ${#CONSOLE_PASSWORD} -lt 8 ]; do
+    error "Senha deve ter no mínimo 8 caracteres"
+    read -rp "$(echo -e "${BLUE}[?]${NC} Senha padrão para os alunos [Extractta@2026]: ")" CONSOLE_PASSWORD
+    CONSOLE_PASSWORD="${CONSOLE_PASSWORD:-Extractta@2026}"
   done
-  success "Senha configurada"
+  success "Senha configurada (será armazenada no Secrets Manager)"
   echo ""
 
   # Nomes derivados
@@ -289,6 +282,16 @@ generate_ssh_keys() {
       ${AWS_OPTS} --region "${REGION}"
   }
   success "Chave pública importada para AWS: ${SSH_KEY_NAME}"
+
+  # Salvar informações da chave SSH para uso posterior (padrão ElastiCache)
+  S3_KEY_PATH="$(date +%Y)/$(date +%m)/$(date +%d)/${SSH_KEY_NAME}.pem"
+  S3_KEYS_BUCKET="${STACK_NAME}-keys-${ACCOUNT_ID}"
+  S3_CONSOLE_URL="https://s3.console.aws.amazon.com/s3/object/${S3_KEYS_BUCKET}?region=${REGION}&prefix=${S3_KEY_PATH}"
+
+  echo "S3_BUCKET=${S3_KEYS_BUCKET}" > "${SCRIPT_DIR}/.ssh-key-info"
+  echo "S3_KEY_PATH=${S3_KEY_PATH}" >> "${SCRIPT_DIR}/.ssh-key-info"
+  echo "S3_CONSOLE_URL=${S3_CONSOLE_URL}" >> "${SCRIPT_DIR}/.ssh-key-info"
+
   echo ""
 }
 
@@ -366,9 +369,35 @@ setup_s3_bucket() {
 
   # Upload da chave privada SSH para S3 (para distribuição aos alunos)
   log "Fazendo upload da chave SSH privada para S3..."
-  aws s3 cp "${SSH_PRIVATE_KEY}" "s3://${S3_BUCKET}/keys/${SSH_KEY_NAME}.pem" \
+
+  # Criar bucket de chaves separado (padrão ElastiCache)
+  if aws s3api head-bucket --bucket "${S3_KEYS_BUCKET}" ${AWS_OPTS} --region "${REGION}" 2>/dev/null; then
+    log "Bucket de chaves já existe: ${S3_KEYS_BUCKET}"
+  else
+    log "Criando bucket de chaves: ${S3_KEYS_BUCKET}"
+    if [ "${REGION}" = "us-east-1" ]; then
+      aws s3api create-bucket \
+        --bucket "${S3_KEYS_BUCKET}" \
+        ${AWS_OPTS} --region "${REGION}" > /dev/null
+    else
+      aws s3api create-bucket \
+        --bucket "${S3_KEYS_BUCKET}" \
+        --create-bucket-configuration LocationConstraint="${REGION}" \
+        ${AWS_OPTS} --region "${REGION}" > /dev/null
+    fi
+
+    # Bloquear acesso público ao bucket de chaves
+    aws s3api put-public-access-block \
+      --bucket "${S3_KEYS_BUCKET}" \
+      --public-access-block-configuration \
+      "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true" \
+      ${AWS_OPTS} --region "${REGION}" > /dev/null
+  fi
+
+  aws s3 cp "${SSH_PRIVATE_KEY}" "s3://${S3_KEYS_BUCKET}/${S3_KEY_PATH}" \
+    --metadata "stack-name=${STACK_NAME},created-date=$(date -Iseconds)" \
     ${AWS_OPTS} --region "${REGION}" > /dev/null
-  success "Chave SSH enviada para: s3://${S3_BUCKET}/keys/${SSH_KEY_NAME}.pem"
+  success "Chave SSH enviada para: s3://${S3_KEYS_BUCKET}/${S3_KEY_PATH}"
 
   # Upload do setup-aluno.sh para S3
   local setup_script="${SCRIPT_DIR}/setup-aluno.sh"
@@ -557,214 +586,347 @@ generate_html_report() {
   }
 
   local console_url="https://${ACCOUNT_ID}.signin.aws.amazon.com/console"
+  local timestamp_file="relatorio-$(date +%Y%m%d-%H%M%S).html"
 
-  # Início do HTML
-  cat > "${HTML_REPORT}" << 'HTMLEOF'
+  # Criar HTML completo localmente
+  {
+    cat << 'HTMLEOF'
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Curso OpenSearch — Relatório de Acesso</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f0f2f5;
-      color: #333;
-      padding: 20px;
-    }
-    .header {
-      background: linear-gradient(135deg, #1a73e8, #0d47a1);
-      color: white;
-      padding: 30px;
-      border-radius: 12px;
-      margin-bottom: 30px;
-      text-align: center;
-    }
-    .header h1 { font-size: 28px; margin-bottom: 8px; }
-    .header p { font-size: 16px; opacity: 0.9; }
-    .info-bar {
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-    }
-    .info-item { flex: 1; min-width: 200px; }
-    .info-item label { font-size: 12px; color: #666; text-transform: uppercase; }
-    .info-item span { display: block; font-size: 14px; font-weight: 600; margin-top: 4px; }
-    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 20px; }
-    .card {
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      overflow: hidden;
-    }
-    .card-header {
-      background: #1a73e8;
-      color: white;
-      padding: 15px 20px;
-      font-size: 18px;
-      font-weight: 600;
-    }
-    .card-body { padding: 20px; }
-    .card-body .field { margin-bottom: 12px; }
-    .card-body .field label {
-      font-size: 12px;
-      color: #666;
-      text-transform: uppercase;
-      display: block;
-      margin-bottom: 2px;
-    }
-    .card-body .field .value {
-      font-family: 'Courier New', monospace;
-      font-size: 13px;
-      background: #f5f5f5;
-      padding: 8px 12px;
-      border-radius: 4px;
-      word-break: break-all;
-    }
-    .card-body .ssh-cmd {
-      background: #263238;
-      color: #80cbc4;
-      padding: 10px 14px;
-      border-radius: 4px;
-      font-family: 'Courier New', monospace;
-      font-size: 13px;
-      margin-top: 8px;
-    }
-    .note {
-      background: #fff3cd;
-      border: 1px solid #ffc107;
-      padding: 15px 20px;
-      border-radius: 8px;
-      margin-top: 20px;
-      font-size: 14px;
-    }
-    .note strong { color: #856404; }
-    .footer {
-      text-align: center;
-      margin-top: 30px;
-      color: #999;
-      font-size: 12px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curso OpenSearch — Informações de Acesso</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header p { font-size: 1.2em; opacity: 0.9; }
+        .content { padding: 40px; }
+        .info-section {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+        .info-section h2 { color: #667eea; margin-bottom: 15px; font-size: 1.5em; }
+        .info-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+        }
+        .info-item strong {
+            color: #333;
+            display: inline-block;
+            min-width: 180px;
+        }
+        .warning-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .warning-box h3 { color: #856404; margin-bottom: 10px; }
+        .warning-box p { color: #856404; line-height: 1.6; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .aluno-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 25px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .aluno-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border-color: #667eea;
+        }
+        .aluno-card h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+            font-size: 0.9em;
+        }
+        .badge {
+            display: inline-block;
+            padding: 5px 12px;
+            background: #667eea;
+            color: white;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .badge-warning {
+            background: #ffc107;
+            color: #333;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #e0e0e0;
+        }
+        @media print {
+            body { background: white; padding: 0; }
+            .container { box-shadow: none; }
+            .aluno-card { page-break-inside: avoid; }
+        }
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+            .info-item strong { display: block; margin-bottom: 5px; }
+        }
+    </style>
 </head>
 <body>
-  <div class="header">
-    <h1>🔍 Curso AWS OpenSearch Service — Módulo 6</h1>
-    <p>Relatório de Acesso dos Alunos</p>
-  </div>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Curso AWS OpenSearch Service — Módulo 6</h1>
+            <p>Informações de Acesso ao Ambiente AWS</p>
 HTMLEOF
 
-  # Info bar
-  cat >> "${HTML_REPORT}" << HTMLEOF
-  <div class="info-bar">
-    <div class="info-item">
-      <label>Console AWS</label>
-      <span><a href="${console_url}" target="_blank">${console_url}</a></span>
-    </div>
-    <div class="info-item">
-      <label>Região</label>
-      <span>${REGION}</span>
-    </div>
-    <div class="info-item">
-      <label>Stack</label>
-      <span>${STACK_NAME}</span>
-    </div>
-    <div class="info-item">
-      <label>Alunos</label>
-      <span>${NUM_ALUNOS}</span>
-    </div>
-    <div class="info-item">
-      <label>S3 Bucket</label>
-      <span>${S3_BUCKET}</span>
-    </div>
-  </div>
+    echo "            <p>Gerado em: $(date '+%d/%m/%Y às %H:%M:%S')</p>"
+    echo "        </div>"
+    echo "        <div class=\"content\">"
 
-  <div class="note">
-    <strong>⚠️ Importante:</strong> A senha do console AWS está armazenada no AWS Secrets Manager
-    (secret: <code>${SECRET_NAME}</code>). Cada aluno deve criar seu próprio OpenSearch Domain no Lab 0.
-  </div>
+    # Warning box sobre senha
+    echo "            <div class=\"warning-box\">"
+    echo "                <h3>🔐 Informação Importante sobre Senhas</h3>"
+    echo "                <p>A senha do console AWS está armazenada no <strong>AWS Secrets Manager</strong> e será fornecida pelo instrutor.</p>"
+    echo "                <p>Por questões de segurança, a senha <strong>NÃO</strong> está incluída neste documento.</p>"
+    echo "            </div>"
 
-  <br>
-  <div class="cards">
-HTMLEOF
+    # Informações gerais
+    echo "            <div class=\"info-section\">"
+    echo "                <h2>📋 Informações Gerais</h2>"
+    echo "                <div class=\"info-item\"><strong>Stack Name:</strong> ${STACK_NAME}</div>"
+    echo "                <div class=\"info-item\"><strong>Região AWS:</strong> ${REGION}</div>"
+    echo "                <div class=\"info-item\"><strong>Account ID:</strong> ${ACCOUNT_ID}</div>"
+    echo "                <div class=\"info-item\"><strong>Número de Alunos:</strong> ${NUM_ALUNOS}</div>"
+    echo "            </div>"
 
-  # Card por aluno
-  for (( i=1; i<=NUM_ALUNOS; i++ )); do
-    local ip access_key secret_key
-    ip=$(echo "$outputs" | jq -r ".[] | select(.OutputKey==\"EC2Aluno${i}IP\") | .OutputValue" 2>/dev/null || echo "N/A")
-    access_key=$(echo "$outputs" | jq -r ".[] | select(.OutputKey==\"AccessKeyAluno${i}Output\") | .OutputValue" 2>/dev/null || echo "N/A")
-    secret_key=$(echo "$outputs" | jq -r ".[] | select(.OutputKey==\"SecretKeyAluno${i}\") | .OutputValue" 2>/dev/null || echo "N/A")
-    local username="${PREFIXO}-aluno${i}"
+    # Console AWS
+    echo "            <div class=\"info-section\">"
+    echo "                <h2>🌐 Acesso ao Console AWS</h2>"
+    echo "                <div class=\"info-item\">"
+    echo "                    <strong>URL de Login:</strong>"
+    echo "                    <a href=\"${console_url}\" target=\"_blank\">${console_url}</a>"
+    echo "                </div>"
+    echo "                <div class=\"info-item\">"
+    echo "                    <strong>Padrão de Usuário:</strong> ${PREFIXO}-alunoXX (onde XX = 01, 02, 03...)"
+    echo "                </div>"
+    echo "                <div class=\"info-item\">"
+    echo "                    <strong>Senha:</strong> <span class=\"badge badge-warning\">Será fornecida pelo instrutor</span>"
+    echo "                </div>"
+    echo "            </div>"
 
-    cat >> "${HTML_REPORT}" << HTMLEOF
-    <div class="card">
-      <div class="card-header">👤 Aluno ${i} — ${username}</div>
-      <div class="card-body">
-        <div class="field">
-          <label>IP da Instância EC2</label>
-          <div class="value">${ip}</div>
-        </div>
-        <div class="field">
-          <label>Usuário IAM</label>
-          <div class="value">${username}</div>
-        </div>
-        <div class="field">
-          <label>Access Key</label>
-          <div class="value">${access_key}</div>
-        </div>
-        <div class="field">
-          <label>Secret Key</label>
-          <div class="value">${secret_key}</div>
-        </div>
-        <div class="field">
-          <label>Comando SSH</label>
-          <div class="ssh-cmd">ssh -i ${SSH_KEY_NAME}.pem ec2-user@${ip}</div>
-        </div>
-        <div class="field">
-          <label>Console AWS</label>
-          <div class="value"><a href="${console_url}" target="_blank">${console_url}</a></div>
-        </div>
-      </div>
-    </div>
-HTMLEOF
-  done
+    # Chave SSH
+    if [ -f "${SCRIPT_DIR}/.ssh-key-info" ]; then
+      source "${SCRIPT_DIR}/.ssh-key-info"
+      echo "            <div class=\"info-section\">"
+      echo "                <h2>🔑 Chave SSH</h2>"
+      echo "                <div class=\"info-item\">"
+      echo "                    <strong>Nome do Arquivo:</strong> ${SSH_KEY_NAME}.pem"
+      echo "                </div>"
+      echo "                <div class=\"info-item\">"
+      echo "                    <strong>Download via Console S3:</strong><br>"
+      echo "                    <a href=\"${S3_CONSOLE_URL}\" target=\"_blank\">Clique aqui para baixar no Console AWS</a>"
+      echo "                </div>"
+      echo "                <div class=\"info-item\">"
+      echo "                    <strong>Download via AWS CLI:</strong>"
+      echo "                    <div class=\"code-block\">aws s3 cp s3://${S3_BUCKET}/${S3_KEY_PATH} ${SSH_KEY_NAME}.pem<br>chmod 400 ${SSH_KEY_NAME}.pem</div>"
+      echo "                </div>"
+      echo "            </div>"
+    else
+      echo "            <div class=\"info-section\">"
+      echo "                <h2>🔑 Chave SSH</h2>"
+      echo "                <div class=\"info-item\">"
+      echo "                    <strong>Nome do Arquivo:</strong> ${SSH_KEY_NAME}.pem"
+      echo "                </div>"
+      echo "                <div class=\"info-item\">"
+      echo "                    <strong>Localização:</strong> Arquivo local — será distribuído pelo instrutor"
+      echo "                </div>"
+      echo "            </div>"
+    fi
 
-  # Fechar HTML
-  cat >> "${HTML_REPORT}" << HTMLEOF
-  </div>
+    # Cards dos alunos
+    echo "            <h2 style=\"color: #667eea; margin: 30px 0 20px 0; font-size: 2em;\">👨‍🎓 Informações dos Alunos</h2>"
+    echo "            <div class=\"grid\">"
 
-  <div class="note">
-    <strong>📋 Instruções para os alunos:</strong><br>
-    1. Acesse a EC2 via SSH usando o comando indicado no card acima<br>
-    2. Navegue até <code>cd ~/Curso-opensearch/modulo6-lab/lab0-setup/</code><br>
-    3. Siga o README.md do Lab 0 para criar seu OpenSearch Domain<br>
-    4. Configure as variáveis de ambiente com <code>./configurar-ambiente.sh</code><br>
-    5. Valide a conexão com <code>./testar-conexao.sh</code><br>
-    6. Inicie os labs a partir do Lab 1
-  </div>
+    for (( i=1; i<=NUM_ALUNOS; i++ )); do
+      local ip
+      ip=$(echo "$outputs" | jq -r ".[] | select(.OutputKey==\"EC2Aluno${i}IP\") | .OutputValue" 2>/dev/null || echo "N/A")
+      local username="${PREFIXO}-aluno$(printf '%02d' $i)"
 
-  <div class="footer">
-    Gerado em $(date +'%Y-%m-%d %H:%M:%S') — Curso AWS OpenSearch Service — Módulo 6
-  </div>
-</body>
-</html>
-HTMLEOF
+      echo "                <div class=\"aluno-card\">"
+      echo "                    <h3>👤 Aluno ${i} — ${username}</h3>"
+      echo "                    <div class=\"info-item\">"
+      echo "                        <span class=\"badge\">Console AWS</span><br>"
+      echo "                        <strong>Usuário IAM:</strong> ${username}"
+      echo "                    </div>"
+      echo "                    <div class=\"info-item\">"
+      echo "                        <span class=\"badge\">Instância EC2</span><br>"
+      echo "                        <strong>IP Público:</strong> <code>${ip}</code>"
+      echo "                    </div>"
+      echo "                    <div class=\"info-item\">"
+      echo "                        <strong>Comando SSH:</strong>"
+      echo "                        <div class=\"code-block\">ssh -i ${SSH_KEY_NAME}.pem ${username}@${ip}</div>"
+      echo "                    </div>"
+      echo "                </div>"
+    done
+
+    echo "            </div>"
+
+    # Instruções importantes
+    echo "            <div class=\"info-section\" style=\"margin-top: 30px;\">"
+    echo "                <h2>📚 Instruções Importantes</h2>"
+    echo "                <div class=\"info-item\">"
+    echo "                    <strong>1. Primeiro Acesso:</strong> Faça login no console AWS com seu usuário e a senha fornecida pelo instrutor."
+    echo "                </div>"
+    echo "                <div class=\"info-item\">"
+    echo "                    <strong>2. Chave SSH:</strong> Baixe a chave SSH e configure as permissões corretas (chmod 400)."
+    echo "                </div>"
+    echo "                <div class=\"info-item\">"
+    echo "                    <strong>3. Conexão EC2:</strong> Use o comando SSH fornecido para conectar à sua instância."
+    echo "                </div>"
+    echo "                <div class=\"info-item\">"
+    echo "                    <strong>4. Lab 0:</strong> Navegue até <code>cd ~/Curso-opensearch/modulo6-lab/lab0-setup/</code> e crie seu OpenSearch Domain."
+    echo "                </div>"
+    echo "                <div class=\"info-item\">"
+    echo "                    <strong>5. Ambiente:</strong> Todas as ferramentas (AWS CLI, curl, jq) já estão instaladas na EC2."
+    echo "                </div>"
+    echo "            </div>"
+
+    # Footer
+    echo "        </div>"
+    echo "        <div class=\"footer\">"
+    echo "            <p><strong>🔍 Curso AWS OpenSearch Service — Módulo 6 — Extractta</strong></p>"
+    echo "            <p>Para dúvidas ou problemas, entre em contato com o instrutor</p>"
+    echo "            <p style=\"margin-top: 10px; font-size: 0.9em; color: #999;\">Documento gerado automaticamente — Não compartilhe com terceiros</p>"
+    echo "        </div>"
+    echo "    </div>"
+    echo "</body>"
+    echo "</html>"
+
+  } > "${HTML_REPORT}"
 
   success "Relatório HTML gerado: ${HTML_REPORT}"
 
-  # Upload do relatório para S3
-  log "Fazendo upload do relatório para S3..."
-  aws s3 cp "${HTML_REPORT}" "s3://${S3_BUCKET}/relatorio-acesso.html" \
-    --content-type "text/html" \
+  # Upload do HTML para S3 — bucket SEPARADO para relatórios (padrão ElastiCache)
+  log "Publicando relatório como S3 website..."
+
+  REPORT_BUCKET="${STACK_NAME}-reports-${ACCOUNT_ID}"
+
+  # Criar bucket de relatórios se não existir
+  if aws s3api head-bucket --bucket "${REPORT_BUCKET}" ${AWS_OPTS} --region "${REGION}" 2>/dev/null; then
+    log "Bucket de relatórios já existe: ${REPORT_BUCKET}"
+  else
+    log "Criando bucket de relatórios: ${REPORT_BUCKET}"
+    if [ "${REGION}" = "us-east-1" ]; then
+      aws s3api create-bucket \
+        --bucket "${REPORT_BUCKET}" \
+        ${AWS_OPTS} --region "${REGION}" > /dev/null
+    else
+      aws s3api create-bucket \
+        --bucket "${REPORT_BUCKET}" \
+        --create-bucket-configuration LocationConstraint="${REGION}" \
+        ${AWS_OPTS} --region "${REGION}" > /dev/null
+    fi
+  fi
+
+  # Configurar bucket como website estático
+  aws s3 website "s3://${REPORT_BUCKET}" \
+    --index-document index.html \
+    --error-document error.html \
+    ${AWS_OPTS} --region "${REGION}"
+
+  # Desbloquear acesso público
+  aws s3api put-public-access-block \
+    --bucket "${REPORT_BUCKET}" \
+    --public-access-block-configuration \
+    "BlockPublicAcls=false,IgnorePublicAcls=false,BlockPublicPolicy=false,RestrictPublicBuckets=false" \
     ${AWS_OPTS} --region "${REGION}" > /dev/null
-  success "Relatório disponível em: s3://${S3_BUCKET}/relatorio-acesso.html"
+
+  # Aplicar política de bucket para acesso público de leitura
+  cat > /tmp/report-bucket-policy.json << POLICYEOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "PublicReadGetObject",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::${REPORT_BUCKET}/*"
+        }
+    ]
+}
+POLICYEOF
+
+  aws s3api put-bucket-policy \
+    --bucket "${REPORT_BUCKET}" \
+    --policy file:///tmp/report-bucket-policy.json \
+    ${AWS_OPTS} --region "${REGION}" > /dev/null
+
+  rm -f /tmp/report-bucket-policy.json
+
+  # Upload como index.html (sempre a versão mais recente) e versionado
+  aws s3 cp "${HTML_REPORT}" "s3://${REPORT_BUCKET}/index.html" \
+    --content-type "text/html; charset=utf-8" \
+    --metadata "stack-name=${STACK_NAME},created-date=$(date -Iseconds)" \
+    ${AWS_OPTS} --region "${REGION}" > /dev/null
+
+  aws s3 cp "${HTML_REPORT}" "s3://${REPORT_BUCKET}/${timestamp_file}" \
+    --content-type "text/html; charset=utf-8" \
+    --metadata "stack-name=${STACK_NAME},created-date=$(date -Iseconds)" \
+    ${AWS_OPTS} --region "${REGION}" > /dev/null
+
+  # Gerar URLs
+  WEBSITE_URL="https://${REPORT_BUCKET}.s3-${REGION}.amazonaws.com"
+  REPORT_URL="${WEBSITE_URL}/${timestamp_file}"
+
+  success "Relatório publicado no S3!"
+  echo -e "  Website: ${WEBSITE_URL}"
+  echo -e "  Relatório: ${REPORT_URL}"
   echo ""
 }
 
@@ -783,33 +945,79 @@ show_summary() {
     --output json 2>/dev/null) || outputs="[]"
 
   echo ""
-  echo -e "${GREEN}════════════════════════════════════════════════════════${NC}"
-  echo -e "${GREEN}  ✅ Deploy Concluído com Sucesso!${NC}"
-  echo -e "${GREEN}════════════════════════════════════════════════════════${NC}"
-  echo ""
-  echo -e "  ${BLUE}Console AWS:${NC}     ${console_url}"
-  echo -e "  ${BLUE}Região:${NC}          ${REGION}"
-  echo -e "  ${BLUE}Stack:${NC}           ${STACK_NAME}"
-  echo -e "  ${BLUE}S3 Bucket:${NC}       s3://${S3_BUCKET}"
-  echo -e "  ${BLUE}Secret:${NC}          ${SECRET_NAME}"
-  echo -e "  ${BLUE}SSH Key:${NC}         ${SSH_PRIVATE_KEY}"
-  echo -e "  ${BLUE}Relatório:${NC}       ${HTML_REPORT}"
+  echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
+  echo -e "${GREEN}           ✅ DEPLOY CONCLUÍDO COM SUCESSO!                    ${NC}"
+  echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
   echo ""
 
+  # Relatório web
+  if [ -n "${WEBSITE_URL:-}" ]; then
+    echo -e "${BLUE}🌐 RELATÓRIO WEB (Sempre atualizado):${NC}"
+    echo -e "${YELLOW}   ${WEBSITE_URL}${NC}"
+    echo ""
+    echo -e "${BLUE}📄 RELATÓRIO ESPECÍFICO (Esta execução):${NC}"
+    echo -e "${YELLOW}   ${REPORT_URL}${NC}"
+    echo ""
+  fi
+
+  # Senha no Secrets Manager
+  echo -e "${BLUE}🔐 SENHA DO CONSOLE (Secrets Manager):${NC}"
+  echo -e "${YELLOW}   https://console.aws.amazon.com/secretsmanager/home?region=${REGION}#!/secret?name=${SECRET_NAME}${NC}"
+  echo ""
+
+  # Console AWS
+  echo -e "${GREEN}🌐 ACESSO AO CONSOLE AWS:${NC}"
+  echo "  URL: ${console_url}"
+  echo "  Usuários: ${PREFIXO}-aluno01, ${PREFIXO}-aluno02, ..."
+  echo "  Senha padrão: Extractta@2026"
+  echo ""
+
+  # Chave SSH
+  if [ -f "${SCRIPT_DIR}/.ssh-key-info" ]; then
+    source "${SCRIPT_DIR}/.ssh-key-info"
+    echo -e "${GREEN}🔑 CHAVE SSH:${NC}"
+    echo "  📁 Arquivo Local: ${SSH_PRIVATE_KEY}"
+    echo "  ⚠️  IMPORTANTE: Guarde este arquivo em local seguro!"
+    echo ""
+    echo -e "${GREEN}☁️  CHAVE NO S3 (Para Distribuição aos Alunos):${NC}"
+    echo "  📦 Bucket: ${S3_BUCKET}"
+    echo "  📂 Caminho: ${S3_KEY_PATH}"
+    echo ""
+    echo -e "${BLUE}🔗 Link para Download (Console AWS):${NC}"
+    echo "  ${S3_CONSOLE_URL}"
+    echo ""
+    echo -e "${YELLOW}📋 Instruções Rápidas para os Alunos:${NC}"
+    echo "  1. Acesse o link do S3 acima (precisa estar logado no Console AWS)"
+    echo "  2. Clique em 'Download' ou 'Baixar'"
+    echo "  3. Salve como: ${SSH_KEY_NAME}.pem"
+    echo "  4. Execute: chmod 400 ${SSH_KEY_NAME}.pem"
+    echo ""
+    echo -e "${YELLOW}📋 Ou via AWS CLI:${NC}"
+    echo "  aws s3 cp s3://${S3_BUCKET}/${S3_KEY_PATH} ${SSH_KEY_NAME}.pem"
+    echo "  chmod 400 ${SSH_KEY_NAME}.pem"
+    echo ""
+  else
+    echo -e "${GREEN}🔑 CHAVE SSH:${NC}"
+    echo "  📁 Arquivo Local: ${SSH_PRIVATE_KEY}"
+    echo "  ⚠️  IMPORTANTE: Guarde este arquivo em local seguro!"
+    echo ""
+  fi
+
+  # Conexão SSH
+  echo -e "${GREEN}🔌 CONEXÃO SSH:${NC}"
+  echo "  ssh -i ${SSH_PRIVATE_KEY} alunoXX@IP-PUBLICO"
+  echo ""
+
+  # IPs dos alunos
   echo -e "  ${BLUE}Acesso dos alunos:${NC}"
   echo ""
   for (( i=1; i<=NUM_ALUNOS; i++ )); do
     local ip
     ip=$(echo "$outputs" | jq -r ".[] | select(.OutputKey==\"EC2Aluno${i}IP\") | .OutputValue" 2>/dev/null || echo "N/A")
-    echo -e "    ${GREEN}Aluno ${i}:${NC} ssh -i ${SSH_PRIVATE_KEY} ec2-user@${ip}"
+    local aluno_name="${PREFIXO}-aluno$(printf '%02d' $i)"
+    echo -e "    ${GREEN}Aluno ${i}:${NC} ssh -i ${SSH_PRIVATE_KEY} ${aluno_name}@${ip}"
   done
 
-  echo ""
-  echo -e "  ${YELLOW}Próximos passos:${NC}"
-  echo -e "    1. Distribua a chave SSH (${SSH_PRIVATE_KEY}) para os alunos"
-  echo -e "    2. Compartilhe o relatório HTML com as credenciais"
-  echo -e "    3. Cada aluno acessa sua EC2 via SSH"
-  echo -e "    4. Cada aluno cria seu OpenSearch Domain no Lab 0"
   echo ""
   echo -e "  ${YELLOW}Gerenciamento:${NC}"
   echo -e "    ./manage-curso.sh status     --stack-name ${STACK_NAME}  — verificar estado"
@@ -821,6 +1029,17 @@ show_summary() {
   echo -e "  ${YELLOW}Validação:${NC}"
   echo -e "    ./test-ambiente.sh --stack-name ${STACK_NAME}"
   echo ""
+  echo -e "${GREEN}💡 Compartilhe o link do relatório com os alunos!${NC}"
+  echo ""
+
+  # Abrir URL no navegador
+  if [ -n "${WEBSITE_URL:-}" ]; then
+    if command -v open &> /dev/null; then
+      open "${WEBSITE_URL}"
+    elif command -v xdg-open &> /dev/null; then
+      xdg-open "${WEBSITE_URL}"
+    fi
+  fi
 }
 
 # =============================================================================
