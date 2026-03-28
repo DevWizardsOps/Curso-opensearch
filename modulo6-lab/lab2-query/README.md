@@ -64,11 +64,9 @@ No **filter context**, o OpenSearch responde à pergunta:
 
 ## 🛠️ Pré-requisitos
 
-- Variáveis de ambiente configuradas:
+- Variáveis de ambiente configuradas (feito no Lab 0). Verifique com `echo $OPENSEARCH_ENDPOINT`. Se vazia, execute:
   ```bash
-  export OPENSEARCH_ENDPOINT="https://seu-dominio.us-east-1.es.amazonaws.com"
-  export OPENSEARCH_USER="admin"
-  export OPENSEARCH_PASS="sua-senha"
+  cd ~/Curso-opensearch/modulo6-lab/lab0-setup/ && ./configurar-ambiente.sh
   ```
 - `curl` e `jq` instalados
 

@@ -92,13 +92,10 @@ cd lab1-bulk/
 ./cleanup.sh
 ```
 
-> ⚠️ **Importante:** Certifique-se de que as variáveis de ambiente estão configuradas antes de executar qualquer lab:
+> ⚠️ **Importante:** As variáveis de ambiente (`OPENSEARCH_ENDPOINT`, `OPENSEARCH_USER`, `OPENSEARCH_PASS`) são configuradas no Lab 0. Verifique com `echo $OPENSEARCH_ENDPOINT`. Se estiver vazia, execute:
 > ```bash
-> export OPENSEARCH_ENDPOINT="https://seu-dominio.us-east-1.es.amazonaws.com"
-> export OPENSEARCH_USER="admin"
-> export OPENSEARCH_PASS="sua-senha"
+> cd ~/Curso-opensearch/modulo6-lab/lab0-setup/ && ./configurar-ambiente.sh
 > ```
-> Essas variáveis são configuradas automaticamente pelo `setup-aluno.sh` em `~/.bashrc`.
 
 ---
 

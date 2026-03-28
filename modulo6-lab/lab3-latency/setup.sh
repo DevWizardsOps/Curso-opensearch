@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 
 INDEX_NAME="lab3-produtos"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DATASET_PATH="${SCRIPT_DIR}/../../dataset/dataset.json"
+DATASET_PATH="${SCRIPT_DIR}/../dataset/dataset.json"
 
 # Funções de log
 log()     { echo -e "${BLUE}[INFO]${NC} $1"; }

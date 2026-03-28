@@ -13,20 +13,19 @@ Ao final, você verá que a ingestão bulk é significativamente mais rápida, p
 
 ## 📋 Pré-requisitos
 
-As seguintes variáveis de ambiente devem estar configuradas antes de executar os scripts:
-
-```bash
-export OPENSEARCH_ENDPOINT="https://seu-dominio.us-east-1.es.amazonaws.com"
-export OPENSEARCH_USER="admin"
-export OPENSEARCH_PASS="sua-senha"
-```
-
-Verifique se estão definidas:
+As variáveis de ambiente devem estar configuradas (feito no Lab 0). Verifique:
 
 ```bash
 echo $OPENSEARCH_ENDPOINT
 echo $OPENSEARCH_USER
 echo $OPENSEARCH_PASS
+```
+
+Se alguma estiver vazia, configure executando o script do Lab 0:
+
+```bash
+cd ~/Curso-opensearch/modulo6-lab/lab0-setup/
+./configurar-ambiente.sh
 ```
 
 ---
@@ -107,7 +106,7 @@ A ingestão bulk deve ser **significativamente mais rápida** que a ingestão in
 ```
 [ERRO] Variável OPENSEARCH_ENDPOINT não está definida.
 ```
-→ Configure as variáveis de ambiente conforme a seção de pré-requisitos.
+→ Execute `cd ~/Curso-opensearch/modulo6-lab/lab0-setup/ && ./configurar-ambiente.sh` para configurar.
 
 **Erro: OpenSearch não acessível**
 ```

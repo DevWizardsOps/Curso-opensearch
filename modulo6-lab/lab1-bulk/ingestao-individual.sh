@@ -15,7 +15,7 @@ NC='\033[0m'
 
 INDEX_NAME="lab1-produtos"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DATASET_PATH="${SCRIPT_DIR}/../../dataset/dataset.json"
+DATASET_PATH="${SCRIPT_DIR}/../dataset/dataset.json"
 RESULT_FILE="/tmp/lab1-individual-result.txt"
 
 log()     { echo -e "${BLUE}[INFO]${NC} $1"; }
