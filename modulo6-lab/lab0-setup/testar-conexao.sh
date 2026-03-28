@@ -65,7 +65,7 @@ check_connectivity() {
     echo ""
     echo "  4. O domínio OpenSearch está no estado 'Active'?"
     echo "     A criação leva 15-20 minutos. Verifique no console:"
-    echo "     aws opensearch describe-domain --domain-name SEU_DOMINIO"
+    echo "     aws opensearch describe-domain --domain-name opensearch-\${ALUNO_ID}"
     echo ""
     exit 1
   }

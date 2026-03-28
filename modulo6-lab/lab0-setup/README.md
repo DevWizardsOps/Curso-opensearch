@@ -26,6 +26,8 @@ Você deve ver seu `UserId`, `Account` e `Arn`. Se houver erro, peça ajuda ao i
 
 3. **Credenciais IAM ativas** — suas credenciais de acesso (AccessKey/SecretKey) já foram configuradas automaticamente pelo script de setup da EC2
 
+> 💡 **Dica**: A variável `$ALUNO_ID` já está definida no seu ambiente (ex: `aluno01`). Os scripts deste lab a utilizam automaticamente para nomear seu domínio OpenSearch.
+
 ---
 
 ## 🚀 Passo a Passo
@@ -40,7 +42,7 @@ Você pode criar o domínio de duas formas: via **Console AWS** ou via **AWS CLI
 2. Navegue até **Amazon OpenSearch Service**
 3. Clique em **Create domain**
 4. Configure:
-   - **Domain name**: `opensearch-aluno` (ou um nome de sua escolha)
+   - **Domain name**: `opensearch-${ALUNO_ID}` (ex: `opensearch-aluno01`)
    - **Deployment type**: Development and testing
    - **Version**: escolha a versão mais recente disponível (OpenSearch 2.x)
 5. Em **Data nodes**:
@@ -73,7 +75,7 @@ Ou, se preferir executar o comando manualmente:
 
 ```bash
 aws opensearch create-domain \
-  --domain-name "opensearch-aluno" \
+  --domain-name "opensearch-${ALUNO_ID}" \
   --engine-version "OpenSearch_2.13" \
   --cluster-config '{"InstanceType":"t3.small.search","InstanceCount":1}' \
   --ebs-options '{"EBSEnabled":true,"VolumeType":"gp3","VolumeSize":10}' \
@@ -106,7 +108,7 @@ A criação do domínio OpenSearch leva algum tempo. Você pode acompanhar o sta
 **Via AWS CLI:**
 
 ```bash
-aws opensearch describe-domain --domain-name "opensearch-aluno" \
+aws opensearch describe-domain --domain-name "opensearch-${ALUNO_ID}" \
   --query 'DomainStatus.Processing'
 ```
 
@@ -115,7 +117,7 @@ Quando retornar `false`, o domínio está pronto.
 Para obter o endpoint:
 
 ```bash
-aws opensearch describe-domain --domain-name "opensearch-aluno" \
+aws opensearch describe-domain --domain-name "opensearch-${ALUNO_ID}" \
   --query 'DomainStatus.Endpoint' --output text
 ```
 

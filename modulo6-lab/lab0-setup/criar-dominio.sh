@@ -54,9 +54,13 @@ collect_parameters() {
   echo -e "${BLUE}========================================${NC}"
   echo ""
 
-  # Nome do domínio
-  read -r -p "$(echo -e "${BLUE}[INFO]${NC} Nome do domínio [opensearch-aluno]: ")" DOMAIN_NAME
-  DOMAIN_NAME="${DOMAIN_NAME:-opensearch-aluno}"
+  # Nome do domínio — usa $ALUNO_ID se disponível para personalizar
+  local default_domain="opensearch-aluno"
+  if [ -n "${ALUNO_ID:-}" ]; then
+    default_domain="opensearch-${ALUNO_ID}"
+  fi
+  read -r -p "$(echo -e "${BLUE}[INFO]${NC} Nome do domínio [${default_domain}]: ")" DOMAIN_NAME
+  DOMAIN_NAME="${DOMAIN_NAME:-${default_domain}}"
 
   # Usuário master
   read -r -p "$(echo -e "${BLUE}[INFO]${NC} Usuário master [admin]: ")" MASTER_USER
