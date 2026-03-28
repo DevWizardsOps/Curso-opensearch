@@ -99,12 +99,14 @@ echo ""
 START_NS=$(date +%s%N)
 
 # Envia todos os documentos em uma única requisição _bulk
-# O dataset.json já está no formato bulk (linha de ação + linha de documento)
-response=$(curl --fail --silent --show-error \
+# Substitui "_index": "produtos" por "_index": "lab1-produtos" no dataset
+bulk_data=$(sed 's/"_index"[[:space:]]*:[[:space:]]*"[^"]*"/"_index": "'"${INDEX_NAME}"'"/g' "$DATASET_PATH")
+
+response=$(echo "$bulk_data" | curl --fail --silent --show-error \
   -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
   -X POST "${OPENSEARCH_ENDPOINT}/_bulk" \
   -H "Content-Type: application/json" \
-  --data-binary "@${DATASET_PATH}" 2>&1) || {
+  --data-binary @- 2>&1) || {
   error "Falha na requisição bulk"
   error "Detalhes: ${response}"
   exit 1
