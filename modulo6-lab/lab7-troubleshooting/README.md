@@ -23,9 +23,11 @@ Quando `timestamp` é mapeado como `keyword`:
 
 ### Sintomas
 
-1. Range query em `timestamp` retorna 0 resultados (ou resultados incorretos)
-2. Não há mensagem de erro — o OpenSearch executa a query sem reclamar
-3. O mapping mostra `"type": "keyword"` para o campo `timestamp`
+1. `date_histogram` aggregation em `timestamp` retorna erro
+2. Range queries com expressões como `now-1y` falham ou retornam 0 resultados
+3. Range queries com strings ISO 8601 fixas podem funcionar "por acidente" (comparação lexicográfica)
+4. Não há mensagem de erro na indexação — o OpenSearch aceita os documentos normalmente
+5. O mapping mostra `"type": "keyword"` para o campo `timestamp`
 
 ## Processo de Diagnóstico
 
@@ -34,9 +36,9 @@ Quando `timestamp` é mapeado como `keyword`:
    GET /lab7-problema/_mapping
    → Identifica que timestamp é keyword, não date
 
-2. Executar range query que falha
-   GET /lab7-problema/_search com range em timestamp
-   → Confirma que retorna 0 resultados
+2. Executar date_histogram aggregation
+   GET /lab7-problema/_search com date_histogram em timestamp
+   → Falha com erro — date_histogram não funciona em campos keyword
 
 3. Verificar saúde geral do cluster
    GET /_cluster/health
@@ -104,15 +106,18 @@ Siga o diagnóstico manualmente para entender cada passo:
 curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
   "${OPENSEARCH_ENDPOINT}/lab7-problema/_mapping" | jq '.lab7_problema.mappings.properties.timestamp'
 
-# Passo 2: Executar range query — retorna 0 resultados (o sintoma)
+# Passo 2: Executar date_histogram — FALHA com keyword (só funciona com date)
 curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
   -X GET "${OPENSEARCH_ENDPOINT}/lab7-problema/_search" \
   -H "Content-Type: application/json" \
   -d '{
-    "query": {
-      "range": { "timestamp": { "gte": "2024-01-01T00:00:00Z", "lte": "2024-12-31T23:59:59Z" } }
+    "size": 0,
+    "aggs": {
+      "docs_por_mes": {
+        "date_histogram": { "field": "timestamp", "calendar_interval": "month" }
+      }
     }
-  }' | jq '{took, hits: .hits.total.value}'
+  }' | jq '{error: .error.reason}'
 
 # Passo 3: Verificar saúde do cluster — confirma que não é problema de infra
 curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \

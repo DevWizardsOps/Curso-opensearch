@@ -173,57 +173,80 @@ echo ""
 # Aguarda indexação
 sleep 1
 
-# Demonstra o problema: range query retorna 0 resultados
+# Demonstra o problema: date_histogram aggregation falha com keyword
 echo -e "${RED}========================================${NC}"
 echo -e "${RED}  Demonstração do Sintoma                ${NC}"
 echo -e "${RED}========================================${NC}"
 echo ""
-log "Executando range query em 'timestamp' (deve retornar 0 resultados)..."
-log "Query: { range: { timestamp: { gte: '2024-01-01', lte: '2024-12-31' } } }"
+log "Executando date_histogram aggregation em 'timestamp'..."
+log "Essa aggregation só funciona com campos do tipo 'date'."
 echo ""
 
-range_response=$(curl --fail --silent --show-error \
+agg_response=$(curl --silent --show-error \
   -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
   -X GET "${OPENSEARCH_ENDPOINT}/${INDEX_PROBLEMA}/_search" \
   -H "Content-Type: application/json" \
   -d '{
-    "query": {
-      "range": {
-        "timestamp": {
-          "gte": "2024-01-01",
-          "lte": "2024-12-31"
+    "size": 0,
+    "aggs": {
+      "docs_por_mes": {
+        "date_histogram": {
+          "field": "timestamp",
+          "calendar_interval": "month"
         }
       }
     }
-  }' 2>&1) || {
-  error "Falha na range query"
-  error "Detalhes: ${range_response}"
-  exit 1
-}
+  }' 2>&1)
 
-range_hits=$(echo "$range_response" | jq '.hits.total.value' 2>/dev/null || echo "N/A")
-range_took=$(echo "$range_response" | jq '.took' 2>/dev/null || echo "N/A")
+agg_status=$(echo "$agg_response" | jq -r '.status // empty' 2>/dev/null || echo "")
+agg_error=$(echo "$agg_response" | jq -r '.error.type // empty' 2>/dev/null || echo "")
 
-echo -e "  took (ms)   : ${range_took}"
-echo -e "  Total hits  : ${RED}${range_hits}${NC}"
 echo ""
-
-if [ "$range_hits" = "0" ] || [ "$range_hits" = "null" ]; then
+if [ -n "$agg_error" ] || [ "$agg_status" = "400" ] || [ "$agg_status" = "500" ]; then
   echo -e "${RED}========================================${NC}"
   echo -e "${RED}  ❌ SINTOMA CONFIRMADO                  ${NC}"
   echo -e "${RED}========================================${NC}"
   echo ""
-  error "Range query retornou 0 resultados!"
-  warning "Os 10 documentos existem no índice, mas a range query não os encontra."
-  warning "Causa raiz: campo 'timestamp' mapeado como 'keyword' em vez de 'date'."
+  error "date_histogram falhou no campo 'timestamp'!"
   echo ""
-  echo -e "${YELLOW}  O OpenSearch não consegue executar range queries de data"
-  echo -e "  em campos do tipo 'keyword' — ele trata o valor como string."
-  echo -e ""
-  echo -e "  Próximo passo: execute ${GREEN}./diagnosticar.sh${YELLOW} para investigar o problema.${NC}"
+  echo -e "  ${YELLOW}Erro retornado:${NC}"
+  echo "$agg_response" | jq -r '.error.reason // .error.root_cause[0].reason // "Erro desconhecido"' 2>/dev/null | head -3
+  echo ""
+  warning "O OpenSearch não consegue executar date_histogram em campos 'keyword'."
+  warning "Causa raiz: campo 'timestamp' mapeado como 'keyword' em vez de 'date'."
 else
-  warning "Range query retornou ${range_hits} resultados (comportamento pode variar por versão do OpenSearch)."
-  warning "Execute ./diagnosticar.sh para investigar o mapping."
+  # Tenta também range com "now" que falha com keyword
+  log "Executando range query com 'now-2y' (expressão de data)..."
+  echo ""
+  now_response=$(curl --silent --show-error \
+    -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+    -X GET "${OPENSEARCH_ENDPOINT}/${INDEX_PROBLEMA}/_search" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "query": {
+        "range": {
+          "timestamp": { "gte": "now-2y", "lte": "now" }
+        }
+      }
+    }' 2>&1)
+
+  now_hits=$(echo "$now_response" | jq '.hits.total.value' 2>/dev/null || echo "0")
+  now_error=$(echo "$now_response" | jq -r '.error.type // empty' 2>/dev/null || echo "")
+
+  if [ -n "$now_error" ] || [ "$now_hits" = "0" ] || [ "$now_hits" = "null" ]; then
+    echo -e "${RED}========================================${NC}"
+    echo -e "${RED}  ❌ SINTOMA CONFIRMADO                  ${NC}"
+    echo -e "${RED}========================================${NC}"
+    echo ""
+    error "Range query com 'now-2y' retornou ${now_hits:-0} resultados (deveria retornar 10)!"
+    warning "Expressões como 'now-2y' não funcionam em campos 'keyword'."
+    warning "Causa raiz: campo 'timestamp' mapeado como 'keyword' em vez de 'date'."
+  else
+    warning "Range query retornou ${now_hits} resultados."
+    warning "Execute ./diagnosticar.sh para investigar o mapping."
+  fi
 fi
 
+echo ""
+echo -e "${YELLOW}  Próximo passo: execute ${GREEN}./diagnosticar.sh${YELLOW} para investigar o problema.${NC}"
 echo ""

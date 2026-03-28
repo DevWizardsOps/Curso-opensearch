@@ -133,57 +133,46 @@ echo ""
 # PASSO 2: Executar range query que demonstra o problema
 # ============================================================
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}  PASSO 2/3 — Range Query em timestamp   ${NC}"
+echo -e "${BLUE}  PASSO 2/3 — date_histogram Aggregation ${NC}"
 echo -e "${BLUE}  GET /${INDEX_PROBLEMA}/_search          ${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
-log "Executando range query em 'timestamp' (2024-01-01 a 2024-12-31)..."
+log "Executando date_histogram aggregation em 'timestamp'..."
+log "Essa aggregation só funciona com campos do tipo 'date'."
 echo ""
 
-range_response=$(curl --fail --silent --show-error \
+agg_response=$(curl --silent --show-error \
   -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
   -X GET "${OPENSEARCH_ENDPOINT}/${INDEX_PROBLEMA}/_search" \
   -H "Content-Type: application/json" \
   -d '{
-    "query": {
-      "range": {
-        "timestamp": {
-          "gte": "2024-01-01",
-          "lte": "2024-12-31"
+    "size": 0,
+    "aggs": {
+      "docs_por_mes": {
+        "date_histogram": {
+          "field": "timestamp",
+          "calendar_interval": "month"
         }
       }
-    },
-    "size": 3
-  }' 2>&1) || {
-  error "Falha na range query"
-  error "Detalhes: ${range_response}"
-  exit 1
-}
+    }
+  }' 2>&1)
 
-range_hits=$(echo "$range_response" | jq '.hits.total.value' 2>/dev/null || echo "N/A")
-range_took=$(echo "$range_response" | jq '.took' 2>/dev/null || echo "N/A")
+agg_error=$(echo "$agg_response" | jq -r '.error.type // empty' 2>/dev/null || echo "")
+agg_status=$(echo "$agg_response" | jq -r '.status // empty' 2>/dev/null || echo "")
 
-echo -e "  took (ms)   : ${range_took}"
-echo -e "  Total hits  : ${RED}${range_hits}${NC}"
-echo ""
-
-# Verifica total de documentos no índice
-total_docs=$(curl --fail --silent --show-error \
-  -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
-  "${OPENSEARCH_ENDPOINT}/${INDEX_PROBLEMA}/_count" 2>/dev/null | \
-  jq '.count' 2>/dev/null || echo "N/A")
-
-echo -e "  Total de docs no índice: ${total_docs}"
-echo ""
-
-if [ "$range_hits" = "0" ] || [ "$range_hits" = "null" ]; then
-  echo -e "  ${RED}❌ Range query retornou 0 resultados${NC}"
-  echo -e "  ${RED}   mas o índice contém ${total_docs} documentos com timestamps em 2024!${NC}"
-  echo -e "  ${YELLOW}   Causa: timestamp mapeado como 'keyword' — range de data não funciona.${NC}"
+if [ -n "$agg_error" ] || [ "$agg_status" = "400" ] || [ "$agg_status" = "500" ]; then
+  range_hits="ERRO"
+  echo -e "  ${RED}❌ date_histogram FALHOU no campo 'timestamp'${NC}"
+  echo ""
+  echo -e "  ${YELLOW}Erro:${NC}"
+  echo "  $(echo "$agg_response" | jq -r '.error.reason // .error.root_cause[0].reason // "Erro desconhecido"' 2>/dev/null | head -2)"
+  echo ""
+  echo -e "  ${RED}O OpenSearch não consegue executar date_histogram em campos 'keyword'.${NC}"
+  echo -e "  ${RED}Isso confirma que o campo 'timestamp' está com o tipo errado.${NC}"
 else
-  echo -e "  ${YELLOW}⚠️  Range query retornou ${range_hits} resultados${NC}"
-  echo -e "  ${YELLOW}   (Comportamento pode variar por versão do OpenSearch)${NC}"
+  range_hits="OK (inesperado)"
+  echo -e "  ${YELLOW}⚠️  date_histogram não retornou erro (comportamento pode variar por versão)${NC}"
 fi
 echo ""
 
@@ -235,7 +224,7 @@ echo -e "  ${RED}Causa raiz: campo 'timestamp' mapeado como 'keyword' em vez de 
 echo ""
 echo -e "  Evidências coletadas:"
 echo -e "    1. ${YELLOW}Mapping${NC}: timestamp.type = '${timestamp_type}' (deveria ser 'date')"
-echo -e "    2. ${YELLOW}Range query${NC}: retornou ${range_hits} resultados (deveria retornar ${total_docs})"
+echo -e "    2. ${YELLOW}date_histogram${NC}: ${range_hits} (falha confirma tipo incorreto)"
 echo -e "    3. ${YELLOW}Cluster health${NC}: ${cluster_status} (problema é de mapping, não de infra)"
 echo ""
 echo -e "  ${GREEN}Solução:${NC}"
