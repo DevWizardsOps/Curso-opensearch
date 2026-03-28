@@ -74,6 +74,11 @@ Execute o script helper que cria o domínio com os parâmetros recomendados:
 Ou, se preferir executar o comando manualmente:
 
 ```bash
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+REGION=$(aws configure get region)
+
+POLICY="{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"es:*\",\"Resource\":\"arn:aws:es:${REGION}:${ACCOUNT_ID}:domain/opensearch-${ALUNO_ID}/*\"}]}"
+
 aws opensearch create-domain \
   --domain-name "opensearch-${ALUNO_ID}" \
   --engine-version "OpenSearch_2.13" \
@@ -82,17 +87,13 @@ aws opensearch create-domain \
   --node-to-node-encryption-options '{"Enabled":true}' \
   --encryption-at-rest-options '{"Enabled":true}' \
   --domain-endpoint-options '{"EnforceHTTPS":true}' \
-  --advanced-security-options '{
-    "Enabled":true,
-    "InternalUserDatabaseEnabled":true,
-    "MasterUserOptions":{
-      "MasterUserName":"admin",
-      "MasterUserPassword":"SuaSenhaForte123!"
-    }
-  }'
+  --access-policies "$POLICY" \
+  --advanced-security-options '{"Enabled":true,"InternalUserDatabaseEnabled":true,"MasterUserOptions":{"MasterUserName":"admin","MasterUserPassword":"SuaSenhaForte123!"}}'
 ```
 
 > ⚠️ **Substitua** `SuaSenhaForte123!` por uma senha forte de sua escolha. Anote o usuário e a senha — você precisará deles nos próximos passos.
+>
+> A `--access-policies` permite que requisições HTTP cheguem ao domínio. A autenticação é feita pelo fine-grained access control (usuário/senha master).
 
 
 ### 2️⃣ Aguardar a Criação do Domínio
@@ -113,6 +114,13 @@ aws opensearch describe-domain --domain-name "opensearch-${ALUNO_ID}" \
 ```
 
 Quando retornar `false`, o domínio está pronto.
+
+Para acompanhar automaticamente a cada 30 segundos (pressione `Ctrl+C` para parar):
+
+```bash
+watch -n 30 "aws opensearch describe-domain --domain-name opensearch-${ALUNO_ID} \
+  --query 'DomainStatus.{Processing:Processing,Endpoint:Endpoint}' --output table"
+```
 
 Para obter o endpoint:
 

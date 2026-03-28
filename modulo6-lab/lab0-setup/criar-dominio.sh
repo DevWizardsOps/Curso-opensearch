@@ -109,30 +109,25 @@ create_domain() {
   log "Criando domínio OpenSearch '${DOMAIN_NAME}'..."
   echo ""
 
+  # Obter Account ID para a access policy
+  local account_id
+  account_id=$(aws sts get-caller-identity --query 'Account' --output text 2>/dev/null)
+
+  # Access policy — permite requisições HTTP ao domínio (fine-grained access control cuida da autenticação)
+  local access_policy="{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"es:*\",\"Resource\":\"arn:aws:es:${AWS_REGION}:${account_id}:domain/${DOMAIN_NAME}/*\"}]}"
+
   local response
   response=$(aws opensearch create-domain \
     --domain-name "${DOMAIN_NAME}" \
     --engine-version "OpenSearch_2.13" \
-    --cluster-config '{
-      "InstanceType": "t3.small.search",
-      "InstanceCount": 1
-    }' \
-    --ebs-options '{
-      "EBSEnabled": true,
-      "VolumeType": "gp3",
-      "VolumeSize": 10
-    }' \
-    --node-to-node-encryption-options '{"Enabled": true}' \
-    --encryption-at-rest-options '{"Enabled": true}' \
-    --domain-endpoint-options '{"EnforceHTTPS": true}' \
-    --advanced-security-options "{
-      \"Enabled\": true,
-      \"InternalUserDatabaseEnabled\": true,
-      \"MasterUserOptions\": {
-        \"MasterUserName\": \"${MASTER_USER}\",
-        \"MasterUserPassword\": \"${MASTER_PASS}\"
-      }
-    }" 2>&1) || {
+    --cluster-config '{"InstanceType":"t3.small.search","InstanceCount":1}' \
+    --ebs-options '{"EBSEnabled":true,"VolumeType":"gp3","VolumeSize":10}' \
+    --node-to-node-encryption-options '{"Enabled":true}' \
+    --encryption-at-rest-options '{"Enabled":true}' \
+    --domain-endpoint-options '{"EnforceHTTPS":true}' \
+    --access-policies "$access_policy" \
+    --advanced-security-options "{\"Enabled\":true,\"InternalUserDatabaseEnabled\":true,\"MasterUserOptions\":{\"MasterUserName\":\"${MASTER_USER}\",\"MasterUserPassword\":\"${MASTER_PASS}\"}}" \
+    2>&1) || {
     error "Falha ao criar o domínio '${DOMAIN_NAME}'."
     echo -e "${RED}Detalhes:${NC}"
     echo "$response"
