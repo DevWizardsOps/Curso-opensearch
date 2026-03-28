@@ -42,11 +42,25 @@ Cria o índice `lab1-produtos` com o mapping padrão do curso. Se o índice já 
 
 ### 2️⃣ Ingestão Individual — Medir baseline
 
+Para entender como funciona a ingestão individual, veja o curl equivalente:
+
+```bash
+# Exemplo: indexar UM documento via POST /{index}/_doc
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X POST "${OPENSEARCH_ENDPOINT}/lab1-produtos/_doc" \
+  -H "Content-Type: application/json" \
+  -d '{"id":"1","nome":"Produto Teste","status":"ativo","descricao":"Exemplo de ingestão individual","usuario":"user_01","timestamp":"2024-01-15T10:30:00Z"}'
+```
+
+Cada documento exige uma requisição HTTP separada (conexão TCP + TLS + processamento).
+
+Para medir o tempo com os 100 documentos do dataset, execute o script:
+
 ```bash
 ./ingestao-individual.sh
 ```
 
-Lê o dataset em `../../dataset/dataset.json` e envia cada documento individualmente. Ao final, exibe:
+Ao final, exibe:
 - Total de documentos enviados
 - Tempo total de execução (em segundos)
 - Taxa de ingestão (docs/segundo)
@@ -54,6 +68,25 @@ Lê o dataset em `../../dataset/dataset.json` e envia cada documento individualm
 O resultado é salvo em `/tmp/lab1-individual-result.txt` para comparação posterior.
 
 ### 3️⃣ Ingestão Bulk — Medir performance otimizada
+
+A API `_bulk` permite enviar múltiplos documentos em uma única requisição. O formato alterna entre uma linha de ação e uma linha de dados:
+
+```bash
+# Exemplo: indexar DOIS documentos em uma única requisição via POST /_bulk
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X POST "${OPENSEARCH_ENDPOINT}/_bulk" \
+  -H "Content-Type: application/json" \
+  -d '
+{"index":{"_index":"lab1-produtos"}}
+{"id":"1","nome":"Produto A","status":"ativo","descricao":"Primeiro documento","usuario":"user_01","timestamp":"2024-01-15T10:30:00Z"}
+{"index":{"_index":"lab1-produtos"}}
+{"id":"2","nome":"Produto B","status":"inativo","descricao":"Segundo documento","usuario":"user_02","timestamp":"2024-02-20T14:45:00Z"}
+'
+```
+
+Todo o overhead de rede ocorre apenas uma vez, independente do número de documentos.
+
+Para medir o tempo com os 100 documentos do dataset, execute o script:
 
 ```bash
 ./ingestao-bulk.sh

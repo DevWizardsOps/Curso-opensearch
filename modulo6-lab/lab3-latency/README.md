@@ -97,20 +97,63 @@ Cria o índice `lab3-produtos` e indexa o dataset padrão (100 documentos).
 
 ### 2️⃣ Query Simples com Profile
 
+A Profile API é ativada adicionando `"profile": true` na requisição. Veja o curl equivalente para uma query `term` simples:
+
+```bash
+# Query simples (TermQuery) com profile habilitado
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X GET "${OPENSEARCH_ENDPOINT}/lab3-produtos/_search" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "profile": true,
+    "query": {
+      "term": { "status": "ativo" }
+    }
+  }' | jq '.profile.shards[0].searches[0].query[] | {type, description, time_in_nanos, breakdown: {create_weight: .breakdown.create_weight, build_scorer: .breakdown.build_scorer, next_doc: .breakdown.next_doc}}'
+```
+
+O output mostra o tipo da query (`TermQuery`), o `time_in_nanos` total e o breakdown por fase interna.
+
+Para uma visualização formatada com comparação, execute o script:
+
 ```bash
 ./query-simples-profile.sh
 ```
 
-Executa uma query `term` simples com `"profile": true` e exibe o `time_in_nanos`.
-
 ### 3️⃣ Query Complexa com Profile
+
+Agora uma query `bool` com múltiplas cláusulas — observe como o profile detalha cada sub-query:
+
+```bash
+# Query complexa (BooleanQuery) com must + should + filter
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X GET "${OPENSEARCH_ENDPOINT}/lab3-produtos/_search" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "profile": true,
+    "query": {
+      "bool": {
+        "must": [
+          { "match": { "descricao": "produto" } }
+        ],
+        "should": [
+          { "term": { "status": "ativo" } }
+        ],
+        "filter": [
+          { "range": { "timestamp": { "gte": "2024-01-01T00:00:00Z" } } }
+        ]
+      }
+    }
+  }' | jq '.profile.shards[0].searches[0].query[] | {type, time_in_nanos, children: [.children[]? | {type, time_in_nanos}]}'
+```
+
+Note que o `BooleanQuery` tem `children` — cada sub-query (`must`, `should`, `filter`) aparece com seu próprio `time_in_nanos`. A soma das fases explica a latência total.
+
+Para uma visualização formatada com comparação entre query simples e complexa, execute o script:
 
 ```bash
 ./query-complexa-profile.sh
 ```
-
-Executa uma query `bool` com `must`, `should` e `filter` com `"profile": true`.
-Exibe o tempo de cada fase e compara com a query simples.
 
 ### 4️⃣ Cleanup — Remover recursos
 

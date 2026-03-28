@@ -40,20 +40,86 @@ Um **shard** é a unidade básica de divisão de um índice no OpenSearch. Cada 
 
 ## Passo a Passo
 
+### 1️⃣ Setup — Verificar pré-requisitos
+
 ```bash
-# 1. Verificar pré-requisitos
 ./setup.sh
+```
 
-# 2. Criar os 3 índices com configurações distintas de shards e indexar o dataset
+Verifica conectividade com o cluster e variáveis de ambiente.
+
+### 2️⃣ Criar índices com diferentes configurações de shards
+
+Para entender como o número de shards é configurado, veja o curl equivalente:
+
+```bash
+# Criar índice com 1 shard (ideal para dataset pequeno)
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X PUT "${OPENSEARCH_ENDPOINT}/lab4-shard1" \
+  -H "Content-Type: application/json" \
+  -d '{"settings": {"number_of_shards": 1, "number_of_replicas": 0}}'
+
+# Criar índice com 5 shards
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X PUT "${OPENSEARCH_ENDPOINT}/lab4-shard5" \
+  -H "Content-Type: application/json" \
+  -d '{"settings": {"number_of_shards": 5, "number_of_replicas": 0}}'
+
+# Criar índice com 20 shards (oversharding para 100 docs)
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X PUT "${OPENSEARCH_ENDPOINT}/lab4-shard20" \
+  -H "Content-Type: application/json" \
+  -d '{"settings": {"number_of_shards": 20, "number_of_replicas": 0}}'
+```
+
+O script cria os 3 índices e indexa o mesmo dataset em cada um:
+
+```bash
 ./criar-indices-shards.sh
+```
 
-# 3. Comparar performance de query entre os índices
+### 3️⃣ Comparar performance entre os índices
+
+Para entender a comparação, veja o curl que executa a mesma query em cada índice:
+
+```bash
+# Mesma query match_all em cada índice — compare o "took"
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X GET "${OPENSEARCH_ENDPOINT}/lab4-shard1/_search" \
+  -H "Content-Type: application/json" \
+  -d '{"query": {"match_all": {}}}' | jq '{index: "lab4-shard1", took, hits: .hits.total.value}'
+
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X GET "${OPENSEARCH_ENDPOINT}/lab4-shard20/_search" \
+  -H "Content-Type: application/json" \
+  -d '{"query": {"match_all": {}}}' | jq '{index: "lab4-shard20", took, hits: .hits.total.value}'
+```
+
+Para a comparação formatada em tabela, execute o script:
+
+```bash
 ./comparar-performance.sh
+```
 
-# 4. Visualizar distribuição de shards no cluster
+### 4️⃣ Visualizar distribuição de shards
+
+Veja como os shards estão distribuídos no cluster:
+
+```bash
+# Listar shards dos índices lab4-shard*
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  "${OPENSEARCH_ENDPOINT}/_cat/shards/lab4-shard*?v&h=index,shard,prirep,state,docs,store,node"
+```
+
+Para uma visualização formatada com resumo por índice:
+
+```bash
 ./ver-shards.sh
+```
 
-# 5. Limpar recursos criados
+### 5️⃣ Cleanup — Remover recursos
+
+```bash
 ./cleanup.sh
 ```
 

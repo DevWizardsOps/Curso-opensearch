@@ -56,17 +56,77 @@ Este lab foca exclusivamente no **impacto da query** — sem geração de carga 
 
 ## Passo a Passo
 
+### 1️⃣ Setup — Criar índice e indexar dataset grande
+
 ```bash
-# 1. Criar índice e indexar dataset-large.json (1000 docs)
 ./setup.sh
+```
 
-# 2. Executar wildcard query + aggregation (query custosa)
+Cria o índice `lab5-produtos` e indexa o `dataset-large.json` (1000 documentos).
+
+### 2️⃣ Query custosa — Wildcard + Aggregation
+
+Veja o curl equivalente da query custosa:
+
+```bash
+# Wildcard query (varre todos os termos) + terms aggregation
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X GET "${OPENSEARCH_ENDPOINT}/lab5-produtos/_search" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "size": 0,
+    "query": {
+      "wildcard": { "descricao": "*produto*" }
+    },
+    "aggs": {
+      "por_status": {
+        "terms": { "field": "status" }
+      }
+    }
+  }' | jq '{took, hits: .hits.total.value, buckets: .aggregations.por_status.buckets}'
+```
+
+Note o `"size": 0` — retorna apenas as aggregations, sem documentos. O `took` reflete o custo da wildcard + aggregation.
+
+Para medir e salvar o resultado para comparação:
+
+```bash
 ./query-wildcard-agg.sh
+```
 
-# 3. Executar term query + aggregation (query otimizada)
+### 3️⃣ Query otimizada — Term + Aggregation
+
+Agora a mesma aggregation, mas com `term` em vez de `wildcard`:
+
+```bash
+# Term query (lookup direto no índice invertido) + terms aggregation
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X GET "${OPENSEARCH_ENDPOINT}/lab5-produtos/_search" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "size": 0,
+    "query": {
+      "term": { "status": "ativo" }
+    },
+    "aggs": {
+      "por_status": {
+        "terms": { "field": "status" }
+      }
+    }
+  }' | jq '{took, hits: .hits.total.value, buckets: .aggregations.por_status.buckets}'
+```
+
+Compare o `took` — o `term` usa lookup O(1) no índice invertido, enquanto o `wildcard` varre todos os termos.
+
+Para a comparação formatada com o resultado da wildcard:
+
+```bash
 ./query-otimizada.sh
+```
 
-# 4. Limpar recursos criados
+### 4️⃣ Cleanup — Remover recursos
+
+```bash
 ./cleanup.sh
 ```
 

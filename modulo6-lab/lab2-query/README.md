@@ -84,19 +84,57 @@ Cria o índice `lab2-produtos` e indexa o dataset padrão (100 documentos).
 
 ### 2️⃣ Query Context — Busca com cálculo de score
 
+No query context, o OpenSearch calcula o `_score` de relevância para cada documento. Veja o curl equivalente:
+
+```bash
+# Busca full-text com match — calcula _score de relevância
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X GET "${OPENSEARCH_ENDPOINT}/lab2-produtos/_search" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": {
+      "match": {
+        "descricao": "produto"
+      }
+    }
+  }' | jq '{took, hits: .hits.total.value, max_score: .hits.max_score}'
+```
+
+Note que o response inclui `_score` e `max_score` — o OpenSearch ranqueou os documentos por relevância.
+
+Para medir o tempo e comparar com o filter context, execute o script:
+
 ```bash
 ./query-context.sh
 ```
 
-Executa uma busca `match` no campo `descricao`. O OpenSearch calcula o `_score` de relevância para cada documento.
-
 ### 3️⃣ Filter Context — Filtro sem cálculo de score
+
+No filter context, o OpenSearch responde apenas "sim ou não" — sem calcular relevância. Veja o curl equivalente:
+
+```bash
+# Filtro exato com bool.filter + term — sem _score, com cache
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X GET "${OPENSEARCH_ENDPOINT}/lab2-produtos/_search" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": {
+      "bool": {
+        "filter": [
+          { "term": { "status": "ativo" } }
+        ]
+      }
+    }
+  }' | jq '{took, hits: .hits.total.value, max_score: .hits.max_score}'
+```
+
+Note que `max_score` retorna `0.0` ou `null` — nenhum cálculo de relevância foi feito. Execute novamente e observe que o `took` diminui (cache de filtros).
+
+Para medir e comparar automaticamente, execute o script:
 
 ```bash
 ./filter-context.sh
 ```
-
-Executa um filtro `bool.filter` + `term` no campo `status`. Sem cálculo de score, com cache automático.
 
 ### 4️⃣ Cleanup — Remover recursos
 

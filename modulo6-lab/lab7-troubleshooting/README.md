@@ -71,14 +71,100 @@ Quando `timestamp` é mapeado como `keyword`:
 
 ## Passo a Passo
 
+### 1️⃣ Criar o cenário de problema
+
+O script cria um índice com mapping incorreto (`timestamp` como `keyword`) e indexa documentos. Veja o curl equivalente do mapping incorreto:
+
 ```bash
-# 1. Criar o cenário de problema (índice com mapping incorreto)
+# Mapping INCORRETO — timestamp como keyword (deveria ser date)
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X PUT "${OPENSEARCH_ENDPOINT}/lab7-problema" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mappings": {
+      "properties": {
+        "timestamp": { "type": "keyword" }
+      }
+    }
+  }'
+```
+
+Para criar o cenário completo (mapping + documentos + demonstração do sintoma):
+
+```bash
 ./criar-problema.sh
+```
 
-# 2. Diagnosticar o problema passo a passo
+### 2️⃣ Diagnosticar o problema
+
+Siga o diagnóstico manualmente para entender cada passo:
+
+```bash
+# Passo 1: Verificar o mapping — note que timestamp é "keyword"
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  "${OPENSEARCH_ENDPOINT}/lab7-problema/_mapping" | jq '.lab7_problema.mappings.properties.timestamp'
+
+# Passo 2: Executar range query — retorna 0 resultados (o sintoma)
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X GET "${OPENSEARCH_ENDPOINT}/lab7-problema/_search" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": {
+      "range": { "timestamp": { "gte": "2024-01-01T00:00:00Z", "lte": "2024-12-31T23:59:59Z" } }
+    }
+  }' | jq '{took, hits: .hits.total.value}'
+
+# Passo 3: Verificar saúde do cluster — confirma que não é problema de infra
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  "${OPENSEARCH_ENDPOINT}/_cluster/health" | jq '{status, unassigned_shards}'
+```
+
+Para o diagnóstico guiado com explicações:
+
+```bash
 ./diagnosticar.sh
+```
 
-# 3. Corrigir o problema (reindex para índice com mapping correto)
+### 3️⃣ Corrigir o problema
+
+A correção envolve criar um novo índice com mapping correto e reindexar. Veja os curls:
+
+```bash
+# Criar índice com mapping CORRETO — timestamp como date
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X PUT "${OPENSEARCH_ENDPOINT}/lab7-corrigido" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mappings": {
+      "properties": {
+        "timestamp": { "type": "date" }
+      }
+    }
+  }'
+
+# Reindexar dados do índice problemático para o corrigido
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X POST "${OPENSEARCH_ENDPOINT}/_reindex" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source": { "index": "lab7-problema" },
+    "dest": { "index": "lab7-corrigido" }
+  }'
+
+# Validar — agora a range query retorna resultados
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X GET "${OPENSEARCH_ENDPOINT}/lab7-corrigido/_search" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": {
+      "range": { "timestamp": { "gte": "2024-01-01T00:00:00Z", "lte": "2024-12-31T23:59:59Z" } }
+    }
+  }' | jq '{took, hits: .hits.total.value}'
+```
+
+Para a correção completa com validação e status do cluster:
+
+```bash
 ./corrigir.sh
 ```
 

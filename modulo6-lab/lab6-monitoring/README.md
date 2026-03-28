@@ -84,17 +84,55 @@ GET /_cat/indices?v&s=store.size:desc
 
 ## Passo a Passo
 
+Os comandos abaixo podem ser executados manualmente via curl ou através dos scripts fornecidos.
+
+### 1️⃣ Saúde do cluster
+
 ```bash
-# Verificar saúde geral do cluster (com alertas coloridos)
+# Verificar saúde geral — observe o campo "status" (green/yellow/red)
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  "${OPENSEARCH_ENDPOINT}/_cluster/health?pretty" | jq '{status, number_of_nodes, active_primary_shards, unassigned_shards}'
+```
+
+Para uma visualização com alertas coloridos:
+
+```bash
 ./cluster-health.sh
+```
 
-# Listar nós e métricas de recursos
+### 2️⃣ Métricas dos nós
+
+```bash
+# Listar nós com heap, RAM, CPU e load
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  "${OPENSEARCH_ENDPOINT}/_cat/nodes?v&h=name,ip,heap.percent,ram.percent,cpu,load_1m,node.role"
+```
+
+Para uma visualização formatada:
+
+```bash
 ./cat-nodes.sh
+```
 
-# Listar índices ordenados por tamanho
+### 3️⃣ Índices do cluster
+
+```bash
+# Listar índices ordenados por tamanho (maior primeiro)
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  "${OPENSEARCH_ENDPOINT}/_cat/indices?v&s=store.size:desc"
+```
+
+Para uma visualização formatada:
+
+```bash
 ./cat-indices.sh
+```
 
-# Executar todos os scripts em sequência
+### 4️⃣ Monitoramento completo
+
+Executa os três scripts em sequência com separadores visuais:
+
+```bash
 ./monitorar-tudo.sh
 ```
 

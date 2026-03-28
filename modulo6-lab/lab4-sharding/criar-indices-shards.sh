@@ -196,6 +196,14 @@ echo -e "${GREEN}  Resumo dos índices criados:             ${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 
+# Forçar refresh para garantir que todos os documentos estejam visíveis
+log "Aguardando refresh dos índices..."
+for idx in lab4-shard1 lab4-shard5 lab4-shard20; do
+  curl --silent -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+    -X POST "${OPENSEARCH_ENDPOINT}/${idx}/_refresh" > /dev/null 2>&1 || true
+done
+echo ""
+
 for idx in lab4-shard1 lab4-shard5 lab4-shard20; do
   count=$(curl --silent \
     -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
