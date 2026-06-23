@@ -385,6 +385,16 @@ cat >> "${OUTPUT}" << 'EOF'
             Action:
               - 'sts:GetCallerIdentity'
             Resource: '*'
+          - Sid: IAMServiceLinkedRole
+            Effect: Allow
+            Action:
+              - 'iam:CreateServiceLinkedRole'
+              - 'iam:GetRole'
+              - 'iam:PassRole'
+            Resource: 'arn:aws:iam::*:role/aws-service-role/opensearchservice.amazonaws.com/*'
+            Condition:
+              StringLike:
+                iam:AWSServiceName: 'opensearchservice.amazonaws.com'
 
   # ============================================================
   # IAM Role para EC2 (acesso ao S3 bucket)
