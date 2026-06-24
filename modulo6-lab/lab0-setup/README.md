@@ -151,11 +151,25 @@ As variáveis serão salvas no `~/.bashrc` e ativadas automaticamente:
 - `OPENSEARCH_USER`
 - `OPENSEARCH_PASS`
 
+O script também **mapeia seu usuário IAM à role `all_access`** do OpenSearch. Isso é necessário para acessar o domínio via console AWS (aba **Indexes**, **Dashboards**, etc.) — sem esse mapeamento, o console retorna erro `403 security_exception`.
+
+> 💡 **Por quê?** O domínio usa fine-grained access control. Os scripts dos labs autenticam com `usuário:senha` (master user interno), mas o console AWS usa suas credenciais IAM (SigV4). O ARN do seu IAM user precisa estar mapeado a uma role de segurança do OpenSearch.
+
 Verifique se foram configuradas:
 
 ```bash
 echo $OPENSEARCH_ENDPOINT
 echo $OPENSEARCH_USER
+```
+
+Se o console ainda retornar erro `403` ao acessar índices, mapeie manualmente:
+
+```bash
+MY_ARN=$(aws sts get-caller-identity --query Arn --output text)
+curl -s -u "${OPENSEARCH_USER}:${OPENSEARCH_PASS}" \
+  -X PATCH "${OPENSEARCH_ENDPOINT}/_plugins/_security/api/rolesmapping/all_access" \
+  -H "Content-Type: application/json" \
+  -d "[{\"op\":\"add\",\"path\":\"/backend_roles/-\",\"value\":\"${MY_ARN}\"}]"
 ```
 
 ---

@@ -160,6 +160,42 @@ activate_variables() {
 }
 
 # =============================================================================
+# Mapeia o IAM user à role all_access (para acesso via console AWS)
+# =============================================================================
+
+map_iam_user() {
+  log "Mapeando seu usuário IAM à role all_access do OpenSearch..."
+
+  # Obtém o ARN do usuário IAM atual
+  local my_arn
+  my_arn=$(aws sts get-caller-identity --query Arn --output text 2>/dev/null) || {
+    warning "Não foi possível obter o ARN do usuário IAM. Pulando mapeamento."
+    warning "O acesso via console AWS (aba Indexes) pode retornar erro 403."
+    return 0
+  }
+
+  # Adiciona o ARN como backend_role da role all_access
+  local http_code
+  http_code=$(curl --silent -o /dev/null -w "%{http_code}" \
+    -u "${USER}:${PASS}" \
+    -X PATCH "${ENDPOINT}/_plugins/_security/api/rolesmapping/all_access" \
+    -H "Content-Type: application/json" \
+    -d "[{\"op\":\"add\",\"path\":\"/backend_roles/-\",\"value\":\"${my_arn}\"}]" 2>/dev/null) || true
+
+  if [ "$http_code" = "200" ]; then
+    success "Usuário IAM mapeado à role all_access: ${my_arn}"
+    log "Agora você pode acessar o domínio via console AWS (aba Indexes)."
+  else
+    warning "Mapeamento retornou HTTP ${http_code}."
+    warning "Se o acesso via console falhar com erro 403, execute manualmente:"
+    echo -e "  ${BLUE}curl -u \"\$OPENSEARCH_USER:\$OPENSEARCH_PASS\" -X PATCH \\${NC}"
+    echo -e "  ${BLUE}  \"\$OPENSEARCH_ENDPOINT/_plugins/_security/api/rolesmapping/all_access\" \\${NC}"
+    echo -e "  ${BLUE}  -H \"Content-Type: application/json\" \\${NC}"
+    echo -e "  ${BLUE}  -d '[{\"op\":\"add\",\"path\":\"/backend_roles/-\",\"value\":\"${my_arn}\"}]'${NC}"
+  fi
+}
+
+# =============================================================================
 # Resumo
 # =============================================================================
 
@@ -211,7 +247,10 @@ configure_bashrc
 # Passo 4: Ativar variáveis na sessão atual
 activate_variables
 
-# Passo 5: Exibir resumo final
+# Passo 5: Mapear IAM user à role all_access (acesso via console)
+map_iam_user
+
+# Passo 6: Exibir resumo final
 show_summary
 
 success "Script finalizado."
